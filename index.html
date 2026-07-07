@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ball Labeler</title>
+<style>
+  :root{ --bg:#0f1420; --panel:#182034; --line:#26314d; --ink:#e7ecf5; --dim:#8a97b0;
+         --accent:#f5c542; --ball:#33d17a; --no:#ff6b6b; --hard:#c792ea; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:700}
+  header .sp{flex:1}
+  .btn{background:#22304d;border:1px solid var(--line);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  .btn:hover{background:#2b3a5c}
+  .btn.p{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+  .name{color:var(--dim);font-size:13px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .count{color:var(--accent);font-weight:600}
+  main{max-width:1100px;margin:0 auto;padding:16px}
+  .stage{position:relative;background:#000;border-radius:10px;overflow:hidden;line-height:0}
+  .stage video{width:100%;display:block;max-height:70vh;object-fit:contain}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+  .empty{display:flex;align-items:center;justify-content:center;min-height:340px;color:var(--dim);text-align:center;padding:30px;line-height:1.7}
+  .empty b{color:var(--ink)}
+  .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .bar label{color:var(--dim);font-size:12px}
+  .bar input[type=number]{width:60px;background:#0e1524;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:5px 6px}
+  .seg{display:flex;gap:4px}
+  .seg .btn{padding:6px 9px}
+  .seg .btn.on{background:var(--accent);color:#111;border-color:var(--accent)}
+  .hint{margin-top:12px;color:var(--dim);font-size:13px;line-height:2}
+  .hint kbd{background:#0e1524;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 7px;color:var(--ink);font-family:ui-monospace,monospace;font-size:12px}
+  .hint .b{color:var(--ball)} .hint .n{color:var(--no)} .hint .h{color:var(--hard)}
+  .cov{margin-top:12px}
+  .cov .track{height:12px;background:#0e1524;border:1px solid var(--line);border-radius:6px;position:relative;overflow:hidden}
+  .cov .track i{position:absolute;top:0;bottom:0;width:2px;background:var(--ball)}
+  .cov .track i.no{background:var(--no)} .cov .track i.hard{background:var(--hard)}
+  .cov .meta{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-top:5px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#20304d;border:1px solid var(--line);
+         padding:9px 16px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .18s;pointer-events:none}
+  .toast.show{opacity:1}
+  a.dl{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏐 Ball Labeler</h1>
+  <button class="btn p" onclick="filePick.click()">Load video</button>
+  <span class="name" id="vname">no video loaded</span>
+  <span class="sp"></span>
+  <span class="count"><span id="cnt">0</span> labels</span>
+  <button class="btn" onclick="jsonPick.click()">Import .json</button>
+  <button class="btn" onclick="exportJSON()">Export .json</button>
+  <input type="file" id="filePick" accept="video/*" style="display:none">
+  <input type="file" id="jsonPick" accept="application/json,.json" style="display:none">
+  <a class="dl" id="dl"></a>
+</header>
+
+<main>
+  <div class="stage" id="stage">
+    <div class="empty" id="empty">
+      <div><b>Load a video</b> to start labeling the ball.<br>
+      Everything runs in your browser — your video never leaves this machine.<br>
+      Click the ball each step; it auto-advances so you can label continuously.</div>
+    </div>
+    <video id="vid" playsinline style="display:none"></video>
+    <canvas id="cv" style="display:none"></canvas>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="playbtn" onclick="playpause()">▶︎ Play</button>
+    <button class="btn" onclick="step(-stepSize())">◀︎ back</button>
+    <button class="btn" onclick="step(stepSize())">step ▶</button>
+    <label>step <input type="number" id="step" value="0.30" min="0.03" step="0.03"> s</label>
+    <div class="seg" title="playback speed">
+      <button class="btn spd on" data-s="1">1×</button>
+      <button class="btn spd" data-s="0.5">.5×</button>
+      <button class="btn spd" data-s="0.25">.25×</button>
+    </div>
+    <label><input type="checkbox" id="auto" checked> auto-advance after each label</label>
+    <label><input type="checkbox" id="ghost" checked> show last ball</label>
+  </div>
+
+  <div class="hint">
+    <kbd>click</kbd> <span class="b">ball here</span> &nbsp;·&nbsp;
+    <kbd>n</kbd> <span class="n">no ball in frame</span> &nbsp;·&nbsp;
+    <kbd>h</kbd> <span class="h">hard / occluded</span> &nbsp;·&nbsp;
+    <kbd>space</kbd> play/pause &nbsp;·&nbsp;
+    <kbd>→</kbd> skip fwd &nbsp;·&nbsp; <kbd>←</kbd> back &nbsp;·&nbsp;
+    <kbd>z</kbd> undo last
+  </div>
+
+  <div class="cov">
+    <div class="track" id="track"></div>
+    <div class="meta"><span id="covtxt">—</span><span id="timetxt">0.00s</span></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const vid=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
+let videoName="", labels=[], lastToast=0;
+
+// ---------- persistence (localStorage, keyed by video name) ----------
+const KEY=n=>"balllabeler:"+n;
+function save(){ if(videoName) try{ localStorage.setItem(KEY(videoName), JSON.stringify(labels)); }catch(e){} render(); }
+function load(){ if(!videoName) return; try{ const s=localStorage.getItem(KEY(videoName)); labels=s?JSON.parse(s):[]; }catch(e){ labels=[]; } render(); }
+
+// ---------- video loading ----------
+$('filePick').onchange=e=>{ const f=e.target.files[0]; if(f) openVideo(f); };
+function openVideo(file){
+  videoName=file.name.replace(/\.[^.]+$/,'');
+  vid.src=URL.createObjectURL(file);
+  $('vname').textContent=file.name;
+  $('empty').style.display='none'; vid.style.display='block'; cv.style.display='block';
+  vid.onloadedmetadata=()=>{ sizeCanvas(); load(); vid.pause(); };
+}
+function sizeCanvas(){ cv.width=vid.videoWidth||1920; cv.height=vid.videoHeight||1080; }
+window.addEventListener('resize', ()=>{});
+
+// ---------- labeling ----------
+function stepSize(){ return Math.max(0.03, parseFloat($('step').value)||0.3); }
+function now(){ return Math.round(vid.currentTime*1000)/1000; }
+function addLabel(type, x, y){
+  if(!vid.src) return;
+  const t=now(), tol=stepSize()*0.4;
+  labels=labels.filter(l=>Math.abs(l.t-t)>tol);           // replace any label at ~this time
+  const l={t, type}; if(x!=null){ l.x=Math.round(x); l.y=Math.round(y); }
+  labels.push(l); labels.sort((a,b)=>a.t-b.t);
+  save();
+  toast(type==='ball'?`ball (${l.x}, ${l.y})`:type==='ball_absent'?'no ball':'hard');
+  if($('auto').checked) step(stepSize());
+}
+function undo(){
+  if(!labels.length) return;
+  // undo the label nearest to (and at/just before) current time, else the last one
+  let idx=labels.length-1;
+  const t=now();
+  for(let i=0;i<labels.length;i++) if(labels[i].t<=t+1e-6) idx=i;
+  const l=labels.splice(idx,1)[0]; save();
+  if(l){ vid.currentTime=l.t; toast('undid '+l.type); }
+}
+function step(dt){ if(!vid.src) return; vid.pause(); setPlayBtn(); vid.currentTime=clamp(vid.currentTime+dt,0,vid.duration||0); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+// canvas click -> ball position in native video pixels
+cv.addEventListener('click', e=>{
+  const r=cv.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width*cv.width, y=(e.clientY-r.top)/r.height*cv.height;
+  addLabel('ball', x, y);
+});
+
+// ---------- transport ----------
+function playpause(){ if(vid.paused){ vid.play(); } else { vid.pause(); } setPlayBtn(); }
+function setPlayBtn(){ $('playbtn').textContent = vid.paused?'▶︎ Play':'❚❚ Pause'; }
+vid.addEventListener('play', setPlayBtn); vid.addEventListener('pause', setPlayBtn);
+document.querySelectorAll('.spd').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.spd').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  vid.playbackRate=parseFloat(b.dataset.s);
+});
+
+// ---------- keyboard ----------
+window.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(!vid.src) return;
+  const k=e.key.toLowerCase();
+  if(k==='n'){ e.preventDefault(); addLabel('ball_absent',null); }
+  else if(k==='h'){ e.preventDefault(); addLabel('ball_hard',null); }
+  else if(k==='z'){ e.preventDefault(); undo(); }
+  else if(k===' '){ e.preventDefault(); playpause(); }
+  else if(k==='arrowright'){ e.preventDefault(); step(stepSize()); }
+  else if(k==='arrowleft'){ e.preventDefault(); step(-stepSize()); }
+  else if(k===','){ e.preventDefault(); step(-0.1); }
+  else if(k==='.'){ e.preventDefault(); step(0.1); }
+});
+
+// ---------- overlay draw ----------
+function labelAt(t){ const tol=stepSize()*0.4; let best=null,bd=1e9;
+  for(const l of labels){ const d=Math.abs(l.t-t); if(d<tol&&d<bd){bd=d;best=l;} } return best; }
+function prevBall(t){ let best=null; for(const l of labels){ if(l.type==='ball'&&l.t<t-1e-6){ if(!best||l.t>best.t) best=l; } } return best; }
+function draw(){
+  requestAnimationFrame(draw);
+  if(!vid.src||!cv.width) return;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const t=vid.currentTime;
+  // ghost of the previous ball (helps your eye follow it)
+  if($('ghost').checked){ const p=prevBall(t); if(p){ ctx.strokeStyle='rgba(51,209,122,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,11,0,7); ctx.stroke(); } }
+  // current-frame label
+  const l=labelAt(t);
+  if(l){
+    if(l.type==='ball'){ ctx.strokeStyle='#33d17a'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(l.x,l.y,13,0,7); ctx.stroke();
+      ctx.fillStyle='#33d17a'; ctx.beginPath(); ctx.arc(l.x,l.y,3,0,7); ctx.fill(); }
+    else { const c=l.type==='ball_absent'?'#ff6b6b':'#c792ea'; ctx.fillStyle=c;
+      ctx.font='bold 26px system-ui'; ctx.fillText(l.type==='ball_absent'?'NO BALL':'HARD', 20, 40); }
+  }
+  $('timetxt').textContent=t.toFixed(2)+'s / '+((vid.duration||0).toFixed(0))+'s';
+}
+requestAnimationFrame(draw);
+
+// ---------- coverage strip + count ----------
+function render(){
+  $('cnt').textContent=labels.length;
+  const dur=vid.duration||0, tr=$('track'); tr.innerHTML='';
+  if(dur){ for(const l of labels){ const i=document.createElement('i');
+    i.style.left=(l.t/dur*100)+'%'; if(l.type==='ball_absent')i.className='no'; else if(l.type==='ball_hard')i.className='hard'; tr.appendChild(i); } }
+  const nb=labels.filter(l=>l.type==='ball').length, no=labels.filter(l=>l.type==='ball_absent').length, hd=labels.length-nb-no;
+  $('covtxt').textContent=`${nb} ball · ${no} no-ball · ${hd} hard`;
+}
+// clicking the coverage strip seeks there
+$('track').addEventListener('click', e=>{ const r=e.currentTarget.getBoundingClientRect(); const f=(e.clientX-r.left)/r.width; if(vid.duration) step(f*vid.duration - vid.currentTime); });
+
+// ---------- export / import ----------
+function exportJSON(){
+  if(!videoName){ toast('load a video first'); return; }
+  const data={ video:videoName, labels: labels.map(l=>({t:l.t, type:l.type, ...(l.x!=null?{x:l.x,y:l.y}:{})})) };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=$('dl'); a.href=URL.createObjectURL(blob); a.download=videoName+'.json'; a.click();
+  toast('exported '+videoName+'.json');
+}
+$('jsonPick').onchange=e=>{ const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result);
+    labels=(d.labels||[]).filter(l=>l&&typeof l.t==='number'); labels.sort((a,b)=>a.t-b.t); save();
+    toast('imported '+labels.length+' labels'); }catch(err){ toast('bad json'); } }; rd.readAsText(f); };
+
+// ---------- toast ----------
+function toast(m){ const el=$('toast'); el.textContent=m; el.classList.add('show'); const id=++lastToast;
+  setTimeout(()=>{ if(id===lastToast) el.classList.remove('show'); }, 1100); }
+</script>
+</body>
+</html>
