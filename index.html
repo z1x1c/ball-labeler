@@ -50,8 +50,9 @@
   <span class="name" id="vname">no video loaded</span>
   <span class="sp"></span>
   <span class="count"><span id="cnt">0</span> labels</span>
-  <button class="btn" onclick="jsonPick.click()">Import .json</button>
-  <button class="btn" onclick="exportJSON()">Export .json</button>
+  <button class="btn" onclick="jsonPick.click()">Import</button>
+  <button class="btn" onclick="exportJSON()" title="labels only, no video">labels .json</button>
+  <button class="btn p" onclick="exportBundle()" title="video + labels in one file to send">⬇ Export video + labels</button>
   <input type="file" id="filePick" accept="video/*" style="display:none">
   <input type="file" id="jsonPick" accept="application/json,.json" style="display:none">
   <a class="dl" id="dl"></a>
@@ -103,7 +104,7 @@
 "use strict";
 const $=id=>document.getElementById(id);
 const vid=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
-let videoName="", labels=[], lastToast=0;
+let videoName="", videoFile=null, labels=[], lastToast=0;
 
 // ---------- persistence (localStorage, keyed by video name) ----------
 const KEY=n=>"balllabeler:"+n;
@@ -114,6 +115,7 @@ function load(){ if(!videoName) return; try{ const s=localStorage.getItem(KEY(vi
 $('filePick').onchange=e=>{ const f=e.target.files[0]; if(f) openVideo(f); };
 function openVideo(file){
   videoName=file.name.replace(/\.[^.]+$/,'');
+  videoFile=file;
   vid.src=URL.createObjectURL(file);
   $('vname').textContent=file.name;
   $('empty').style.display='none'; vid.style.display='block'; cv.style.display='block';
@@ -221,6 +223,48 @@ function exportJSON(){
   const a=$('dl'); a.href=URL.createObjectURL(blob); a.download=videoName+'.json'; a.click();
   toast('exported '+videoName+'.json');
 }
+// ---- bundle export: video + labels.json as one .zip (no library, streams the video) ----
+let _crcT=null;
+function crcTable(){ if(_crcT) return _crcT; _crcT=new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); _crcT[n]=c>>>0; } return _crcT; }
+async function crc32(blob, onProg){ const t=crcTable(); let c=0xFFFFFFFF; const CH=8<<20;   // 8MB chunks
+  for(let off=0; off<blob.size; off+=CH){ const b=new Uint8Array(await blob.slice(off,off+CH).arrayBuffer());
+    for(let i=0;i<b.length;i++) c=(c>>>8)^t[(c^b[i])&0xFF]; if(onProg) onProg(Math.min(off+CH,blob.size)); }
+  return (blob.size?((c^0xFFFFFFFF)>>>0):0); }
+const u16=n=>[n&0xFF,(n>>>8)&0xFF], u32=n=>[n&0xFF,(n>>>8)&0xFF,(n>>>16)&0xFF,(n>>>24)&0xFF];
+function bytes(...groups){ const a=[]; for(const g of groups) for(const b of g) a.push(b&0xFF); return a; }
+function dosDT(d){ return { time:(((d.getHours()&31)<<11)|((d.getMinutes()&63)<<5)|((d.getSeconds()>>1)&31))&0xFFFF,
+  date:((((d.getFullYear()-1980)&127)<<9)|(((d.getMonth()+1)&15)<<5)|(d.getDate()&31))&0xFFFF }; }
+async function makeZip(entries, onProg){
+  const enc=new TextEncoder(), dt=dosDT(new Date());
+  const parts=[], central=[]; let offset=0, doneBytes=0;
+  const total=entries.reduce((s,e)=>s+e.blob.size,0);
+  for(const e of entries){
+    const nb=enc.encode(e.name), size=e.blob.size;
+    const crc=await crc32(e.blob, r=>onProg&&onProg(doneBytes+r, total)); doneBytes+=size;
+    const lh=new Uint8Array(bytes(u32(0x04034b50),u16(20),u16(0),u16(0),u16(dt.time),u16(dt.date),u32(crc),u32(size),u32(size),u16(nb.length),u16(0)).concat([...nb]));
+    parts.push(lh, e.blob);
+    central.push(new Uint8Array(bytes(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(dt.time),u16(dt.date),u32(crc),u32(size),u32(size),u16(nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset)).concat([...nb])));
+    offset += lh.length + size;
+  }
+  const cdSize=central.reduce((s,c)=>s+c.length,0);
+  const eocd=new Uint8Array(bytes(u32(0x06054b50),u16(0),u16(0),u16(central.length),u16(central.length),u32(cdSize),u32(offset),u16(0)));
+  return new Blob([...parts, ...central, eocd], {type:'application/zip'});
+}
+async function exportBundle(){
+  if(!videoFile){ toast('load a video first'); return; }
+  if(videoFile.size >= 0xFFFFFFFF){ toast('video >4GB — use “labels .json” and send the video separately'); return; }
+  const data={ video:videoName, labels: labels.map(l=>({t:l.t, type:l.type, ...(l.x!=null?{x:l.x,y:l.y}:{})})) };
+  const jsonBlob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  toast('packaging video + labels… 0%');
+  try{
+    const zip=await makeZip([{name:videoFile.name, blob:videoFile}, {name:videoName+'.json', blob:jsonBlob}],
+      (done,total)=>toast('packaging video + labels… '+Math.round(done/total*100)+'%'));
+    const a=$('dl'); a.href=URL.createObjectURL(zip); a.download=videoName+'_labeled.zip'; a.click();
+    toast('saved '+videoName+'_labeled.zip  ✓');
+  }catch(err){ toast('packaging failed — try “labels .json” instead'); }
+}
+
 $('jsonPick').onchange=e=>{ const f=e.target.files[0]; if(!f) return;
   const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result);
     labels=(d.labels||[]).filter(l=>l&&typeof l.t==='number'); labels.sort((a,b)=>a.t-b.t); save();

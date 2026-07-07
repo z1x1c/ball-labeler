@@ -123,14 +123,22 @@ Helpful bits on screen:
 
 ---
 
-## Step 4 — Save your labels
+## Step 4 — Save / send your work
 
-Click **Export .json** (top-right). Your browser downloads a file named after your
-video, e.g. `match_01.json`. That's your labeled data — send it on / keep it safe.
+Top-right, you have two ways to save:
 
-- Your work is also **auto-saved inside the browser**, so if you close the tab and come
-  back to the same video, your labels are still there.
-- To continue from a saved file later, click **Import .json** and pick it.
+- **⬇ Export video + labels** *(use this to send your work to someone)* — packages
+  **your video and your labels together into one `.zip` file** (e.g.
+  `match_01_labeled.zip`). Whoever receives it gets everything they need in a single
+  file. (Large videos take a few seconds to package — you'll see a progress %.)
+- **labels .json** — saves **just the labels** (a small `match_01.json`), for when the
+  other person already has the video.
+
+Also:
+- Your work is **auto-saved inside the browser**, so if you close the tab and come back
+  to the same video, your labels are still there.
+- To continue from a saved file later, click **Import** and pick a `.json` (or a
+  `.json` you pulled out of a `.zip`).
 
 ---
 
