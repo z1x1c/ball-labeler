@@ -55,6 +55,16 @@
   .wave canvas{width:100%;height:72px;display:block;background:#0b1120;border-radius:6px;cursor:grab;touch-action:none}
   .wave canvas:active{cursor:grabbing}
   .wave label{color:var(--dim)} .wave input[type=number]{width:50px;background:#0e1524;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px}
+  .count{cursor:pointer}
+  .labellist{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;max-height:280px;overflow-y:auto}
+  .labellist .none{color:var(--dim);padding:10px;font-size:13px}
+  .lrow{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:7px;cursor:pointer;font-size:13px}
+  .lrow:hover{background:#22304d}
+  .lrow .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .lrow .t{color:var(--accent);font-variant-numeric:tabular-nums;min-width:48px}
+  .lrow .d{flex:1}
+  .lrow .x{color:var(--no);padding:2px 9px;border-radius:6px;flex:0 0 auto}
+  .lrow .x:hover{background:#3a1f28}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#20304d;border:1px solid var(--line);
          padding:9px 16px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .18s;pointer-events:none;z-index:9}
   .toast.show{opacity:1}
@@ -69,7 +79,7 @@
   <button class="btn p" onclick="filePick.click()">Load video</button>
   <span class="name" id="vname">no video loaded</span>
   <span class="sp"></span>
-  <span class="count" id="cnt">—</span>
+  <span class="count" id="cnt" onclick="toggleList()" title="click to review / jump to / correct labels">—</span>
   <button class="btn" onclick="jsonPick.click()">Import</button>
   <button class="btn" onclick="exportJSON()" title="labels only, no video">labels .json</button>
   <button class="btn p" onclick="exportBundle()" title="video + labels in one file to send">⬇ Export video + labels</button>
@@ -150,6 +160,8 @@
     </div>
     <canvas id="wave" height="72"></canvas>
   </div>
+
+  <div class="labellist" id="labellist" style="display:none"><div id="labelrows"></div></div>
 </main>
 
 <div class="toast" id="toast"></div>
@@ -399,8 +411,25 @@ function render(){
   const dur=vid.duration||0, tr=$('track'); tr.innerHTML='';
   if(dur) for(const l of labels){ const i=document.createElement('i'); i.style.left=(l.t/dur*100)+'%'; i.style.background=COLORS[l.type]||'#888'; tr.appendChild(i); }
   $('covtxt').textContent=`${c.ball} ball · ${c.ball_absent} no-ball · ${c.ball_hard} hard · ${c.action} action · ${c.score} score`;
+  renderList();
 }
 $('track').addEventListener('click', e=>{ const r=e.currentTarget.getBoundingClientRect(); const f=(e.clientX-r.left)/r.width; if(vid.duration) step(f*vid.duration - vid.currentTime); });
+
+// ---------- label list: jump to any label to review / correct it ----------
+function labelDesc(l){ return l.type==='ball'?`ball (${l.x}, ${l.y})` : l.type==='ball_absent'?'no ball'
+  : l.type==='ball_hard'?'hard' : l.type==='action'?`${l.action} → ${l.outcome}` : l.type==='score'?`point → ${l.scorer}` : l.type; }
+function toggleList(){ const el=$('labellist'); el.style.display=(el.style.display==='none'?'block':'none'); renderList(); }
+function renderList(){ const el=$('labellist'); if(el.style.display==='none') return; const box=$('labelrows'); box.innerHTML='';
+  if(!labels.length){ box.innerHTML='<div class="none">No labels yet.</div>'; return; }
+  labels.forEach(l=>{ const d=document.createElement('div'); d.className='lrow'; d.onclick=()=>gotoLabel(l);
+    d.innerHTML=`<span class="dot" style="background:${COLORS[l.type]||'#888'}"></span><span class="t"></span><span class="d"></span><span class="x" title="delete">✕</span>`;
+    d.querySelector('.t').textContent=fmt(l.t); d.querySelector('.d').textContent=labelDesc(l);
+    d.querySelector('.x').onclick=ev=>{ ev.stopPropagation(); delLabel(l); };
+    box.appendChild(d); }); }
+function gotoLabel(l){ vid.pause(); setPlayBtn(); vid.currentTime=l.t;
+  setMode(l.type==='action'?'action':l.type==='score'?'score':'ball');
+  toast('jumped to '+labelDesc(l)+' — click/relabel to fix, or ✕ to delete'); }
+function delLabel(l){ const i=labels.indexOf(l); if(i<0) return; labels.splice(i,1); save(); if(mode==='score')renderScorePanel(); toast('deleted '+labelDesc(l)); }
 
 // ---------- export / import ----------
 function exportData(){ return { video:videoName, orientation: courtOri==='lr'?'left-right':'top-bottom', labels: labels.map(l=>{ const o={t:l.t,type:l.type};

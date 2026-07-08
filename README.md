@@ -98,6 +98,11 @@ frame, so it never covers anything you'd click) — drag it to jump anywhere; it
 current / total time. Also **space** = play/pause, **`→`** / **`←`** = step forward/back,
 **`z`** = undo, and the **speed** buttons (1× / .5× / .25×) slow fast rallies down. The
 colored bar further down shows everything you've labeled — click it to jump too.
+
+**Reviewing / correcting.** Click the **label count** in the top bar to open a **list of
+all your labels**. Click any entry to **jump to it** (it also switches to the matching
+mode), then fix it — re-click to re-place a ball, or hit **✕** in the list to delete it.
+Handy for cleaning up mistakes without hunting through the video.
 **⛶ Fullscreen** (or press **`f`**) fills the screen with the video *and* the controls —
 so you get a bigger frame for precise clicking without losing any tools; press **`f`** or
 **Esc** to exit.
