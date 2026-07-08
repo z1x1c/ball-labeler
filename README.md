@@ -104,7 +104,8 @@ so you get a bigger frame for precise clicking without losing any tools; press *
 
 **Audio waveform.** Below that, a waveform shows the video's sound synced to playback —
 **contacts and whistles appear as spikes**, with a gold line marking the current moment.
-Click it to jump to a sound. It's especially useful when something happens **off-frame
+**Click** it to jump to a sound, or **drag it side to side** (or two-finger / horizontal
+scroll) to scrub through the audio. It's especially useful when something happens **off-frame
 or in a blur** — e.g. a serve you can *hear* but can't *see* — so you can find the moment
 by its sound and label it. (Adjust the **window** seconds to zoom in/out; untick **show**
 to hide it. Your labels appear as colored ticks on it too.)

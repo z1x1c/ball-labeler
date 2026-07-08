@@ -52,7 +52,8 @@
   .cov .meta{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-top:5px}
   .wave{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .wave .wavehead{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:12px;margin-bottom:6px;flex-wrap:wrap}
-  .wave canvas{width:100%;height:72px;display:block;background:#0b1120;border-radius:6px;cursor:crosshair}
+  .wave canvas{width:100%;height:72px;display:block;background:#0b1120;border-radius:6px;cursor:grab;touch-action:none}
+  .wave canvas:active{cursor:grabbing}
   .wave label{color:var(--dim)} .wave input[type=number]{width:50px;background:#0e1524;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#20304d;border:1px solid var(--line);
          padding:9px 16px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .18s;pointer-events:none;z-index:9}
@@ -142,7 +143,7 @@
   </div>
 
   <div class="wave" id="wavewrap" style="display:none">
-    <div class="wavehead">🔊 <b style="color:var(--ink)">Audio</b> — contacts &amp; whistles show as spikes; click to jump there. <span id="wavestatus"></span>
+    <div class="wavehead">🔊 <b style="color:var(--ink)">Audio</b> — contacts &amp; whistles show as spikes; click to jump, drag or scroll to scrub. <span id="wavestatus"></span>
       <span class="sp" style="flex:1"></span>
       <label>window <input type="number" id="wavewin" value="8" min="2" max="60" step="2"> s</label>
       <label><input type="checkbox" id="wavetoggle" checked> show</label>
@@ -375,9 +376,21 @@ function drawWave(t){
     wx.fillStyle=COLORS[l.type]||'#888'; wx.fillRect(px-1,0,2,H); }
   wx.strokeStyle='#f5c542'; wx.lineWidth=2; wx.beginPath(); wx.moveTo(W/2,0); wx.lineTo(W/2,H); wx.stroke();
 }
-$('wave').addEventListener('click', e=>{ if(!audioEnv||!vid.duration) return;
-  const r=$('wave').getBoundingClientRect(), win=Math.max(2,parseFloat($('wavewin').value)||8);
-  const tt=(vid.currentTime-win/2)+((e.clientX-r.left)/r.width)*win; step(clamp(tt,0,vid.duration)-vid.currentTime); });
+// waveform navigation: click to jump, drag (grab) or horizontal-scroll to scrub
+const waveWin=()=>Math.max(2,parseFloat($('wavewin').value)||8);
+let waveDrag=null;
+$('wave').addEventListener('pointerdown', e=>{ if(!audioEnv||!vid.duration) return;
+  vid.pause(); setPlayBtn(); $('wave').setPointerCapture(e.pointerId); waveDrag={x:e.clientX, t:vid.currentTime, moved:false}; });
+$('wave').addEventListener('pointermove', e=>{ if(!waveDrag) return; const dx=e.clientX-waveDrag.x;
+  if(Math.abs(dx)>2) waveDrag.moved=true;
+  vid.currentTime=clamp(waveDrag.t - (dx/$('wave').clientWidth)*waveWin(), 0, vid.duration); if(mode==='score')renderScorePanel(); });
+$('wave').addEventListener('pointerup', e=>{ if(!waveDrag) return;
+  if(!waveDrag.moved){ const r=$('wave').getBoundingClientRect();
+    vid.currentTime=clamp((waveDrag.t-waveWin()/2)+((e.clientX-r.left)/r.width)*waveWin(),0,vid.duration); if(mode==='score')renderScorePanel(); }
+  waveDrag=null; });
+$('wave').addEventListener('wheel', e=>{ if(!audioEnv||!vid.duration) return; e.preventDefault();
+  const d=Math.abs(e.deltaX)>=Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+  vid.currentTime=clamp(vid.currentTime + (d/$('wave').clientWidth)*waveWin(), 0, vid.duration); if(mode==='score')renderScorePanel(); }, {passive:false});
 
 // ---------- coverage + count ----------
 function render(){
