@@ -128,9 +128,17 @@ how far it jumps after each click (0.30 s is a good default).
 ### Actions mode — who did what
 1. **Pause at the moment of contact** (the spike hit, the serve toss-contact, the block touch).
 2. **Click the player** who made the play.
-3. Pick the **action**: **`s`** serve · **`a`** attack · **`b`** block · **`d`** dig · **`t`** set.
-4. Pick the **outcome** with **`1`** / **`2`** / **`3`** (some have a 4th) — e.g. attack →
-   kill / in / error, set → assist / kill / in / error.
+3. Pick the **action**: **`s`** serve · **`a`** attack · **`b`** block · **`d`** dig ·
+   **`t`** set · **`o`** other.
+4. Pick the **outcome** with **`1`**, **`2`**, **`3`**… — e.g. attack → kill / in / error,
+   set → assist / kill / in / out / error.
+
+**`o` Other — rule-break faults off the ball.** Some rallies end because a player who
+*wasn't* playing the ball broke a rule (a net touch, a foot over the line, etc.) — no
+model could infer that from the ball, so you mark it: click the offending player →
+**Other** → the fault type (**net touch · foot fault · four hits · reach over · rotation
+· other**). They all mean the same thing for now — *a fault, point to the other team* —
+but the specific type is saved so a finer model can use it later.
 
 That's it — click, one key, one key. Press **`z`** to cancel or undo.
 

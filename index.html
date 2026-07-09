@@ -173,15 +173,16 @@ const vid=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
 let videoName="", videoFile=null, labels=[], lastToast=0, mode='ball', pending=null, courtOri='lr', scoreFlash=null;
 let audioEnv=null, audioRate=0;   // audio peak envelope (bins) + bins/sec, for the waveform
 
-const ACTIONS={ serve:['ace','in','error'], attack:['kill','in','error'], block:['stuff','touch','error'], dig:['dig','kill','error'], set:['assist','kill','in','out','error'] };
-const ACTKEY={ s:'serve', a:'attack', b:'block', d:'dig', t:'set' };
+const ACTIONS={ serve:['ace','in','error'], attack:['kill','in','error'], block:['stuff','touch','error'], dig:['dig','kill','error'], set:['assist','kill','in','out','error'],
+  other:['net touch','foot fault','four hits','reach over','rotation','other'] };   // rule-break faults (off-the-ball); all = point to the other team
+const ACTKEY={ s:'serve', a:'attack', b:'block', d:'dig', t:'set', o:'other' };
 const COLORS={ ball:'#33d17a', ball_absent:'#ff6b6b', ball_hard:'#c792ea', action:'#4dc3ff', score:'#f5c542' };
 const MHINT={ ball:'Click the ball each step — it auto-advances so you can label continuously.',
              action:'Pause at the moment of contact, click the player, then pick action → outcome. One marker per action; label a spike + block at the same moment as two separate actions.',
              score:'Set how the teams are arranged (↔ left/right or ↕ top/bottom), then mark each point as the side that won the rally.' };
 const KHINT={
   ball:'<kbd>click</kbd> <span class="b">ball</span> · <kbd>n</kbd> <span class="n">no ball</span> · <kbd>h</kbd> <span class="h">hard</span> · <kbd>space</kbd> play/pause · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step · <kbd>z</kbd> undo',
-  action:'<kbd>click</kbd> the player, then <kbd>s</kbd>erve <kbd>a</kbd>ttack <kbd>b</kbd>lock <kbd>d</kbd>ig se<kbd>t</kbd>, then <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> outcome · <kbd>z</kbd> undo/cancel · <kbd>space</kbd> play · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step',
+  action:'<kbd>click</kbd> the player, then <kbd>s</kbd>erve <kbd>a</kbd>ttack <kbd>b</kbd>lock <kbd>d</kbd>ig se<kbd>t</kbd> <kbd>o</kbd>ther, then <kbd>1</kbd>..<kbd>n</kbd> outcome · <kbd>z</kbd> undo/cancel · <kbd>space</kbd> play · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step',
   score:'<kbd>1</kbd> first side won the rally · <kbd>2</kbd> second side won (buttons show which is which) · <kbd>z</kbd> undo · <kbd>space</kbd> play/pause · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step' };
 
 // ---------- persistence ----------
