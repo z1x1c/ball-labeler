@@ -145,9 +145,10 @@ That's it — click, one key, one key. Press **`z`** to cancel or undo.
 **Preview the outcome.** As soon as you pick the action, the clip **plays ahead a few
 seconds so you can see how the rally ended** (ace? error? kept in play?), then **snaps
 back to the marked frame** so you pick the outcome without scrubbing back yourself. Your
-label always lands on the marked frame, not wherever the preview stopped. Set the length
-(default **5 s**) or switch it off with the **"preview … s after action"** control in the
-bar. Pick the outcome any time — even mid-preview — to stop it early.
+label always lands on the marked frame, not wherever the preview stopped. In the bar you
+can set the **length** (default **5 s**), the **speed** (**1× / 2× / 3×**, default **2×** —
+it fast-forwards so you spend less time watching, then restores your normal speed), or
+switch it off entirely. Pick the outcome any time — even mid-preview — to stop it early.
 
 **How to do it well (and quickly):**
 - **One marker per action** — it's a single event, *not* a track. You don't re-mark the
