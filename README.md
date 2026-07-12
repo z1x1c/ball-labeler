@@ -142,6 +142,13 @@ but the specific type is saved so a finer model can use it later.
 
 That's it — click, one key, one key. Press **`z`** to cancel or undo.
 
+**Preview the outcome.** As soon as you pick the action, the clip **plays ahead a few
+seconds so you can see how the rally ended** (ace? error? kept in play?), then **snaps
+back to the marked frame** so you pick the outcome without scrubbing back yourself. Your
+label always lands on the marked frame, not wherever the preview stopped. Set the length
+(default **5 s**) or switch it off with the **"preview … s after action"** control in the
+bar. Pick the outcome any time — even mid-preview — to stop it early.
+
 **How to do it well (and quickly):**
 - **One marker per action** — it's a single event, *not* a track. You don't re-mark the
   player as they move; you place one marker at the contact frame and move on.

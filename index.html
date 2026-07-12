@@ -125,6 +125,7 @@
     </div>
     <label id="autowrap"><input type="checkbox" id="auto" checked> auto-advance after each label</label>
     <label id="ghostwrap"><input type="checkbox" id="ghost" checked> show last ball</label>
+    <label id="previewwrap" style="display:none" title="after you pick the action, play ahead to see the outcome, then snap back"><input type="checkbox" id="preview" checked> preview <input type="number" id="previewsec" value="5" min="1" max="20" step="1" style="width:48px"> s after action</label>
     <span class="sp" style="flex:1"></span>
     <button class="btn" id="fsbtn" onclick="toggleFS()" title="fills the screen — video + controls stay usable">⛶ Fullscreen</button>
   </div>
@@ -229,6 +230,8 @@ function setMode(m){ mode=m; pending=null;
   $('panel-score').style.display=m==='score'?'flex':'none';
   $('autowrap').style.display=m==='ball'?'':'none';
   $('ghostwrap').style.display=m==='ball'?'':'none';
+  $('previewwrap').style.display=m==='action'?'':'none';
+  _previewTo=null;
   if(m==='action') renderActionPanel(); if(m==='score') renderScorePanel();
 }
 
@@ -246,12 +249,18 @@ function addBall(type,x,y){ const t=now(), l={t,type}; if(x!=null){l.x=Math.roun
   if($('auto').checked) step(stepSize()); }
 
 // actions: click player -> pick action -> pick outcome
-function clickPlayer(x,y){ pending={x:Math.round(x),y:Math.round(y)}; renderActionPanel(); toast('player set — pick the action'); }
-function pickAction(a){ if(!pending)return; pending.action=a; renderActionPanel(); }
-function pickOutcome(o){ if(!pending||!pending.action)return;
-  pushLabel({t:now(), type:'action', x:pending.x, y:pending.y, action:pending.action, outcome:o});
-  toast(`${pending.action} → ${o}`); pending=null; renderActionPanel(); }
-function cancelPending(){ pending=null; renderActionPanel(); }
+function clickPlayer(x,y){ pending={x:Math.round(x),y:Math.round(y),t:now()}; renderActionPanel(); toast('player set — pick the action'); }
+function pickAction(a){ if(!pending)return; pending.action=a; renderActionPanel(); previewThenReturn(); }
+function pickOutcome(o){ if(!pending||!pending.action)return; const back=pending.t;
+  pushLabel({t: back!=null?back:now(), type:'action', x:pending.x, y:pending.y, action:pending.action, outcome:o});
+  toast(`${pending.action} → ${o}`); pending=null; endPreview(back); renderActionPanel(); }
+function cancelPending(){ const back=pending?pending.t:null; pending=null; endPreview(back); renderActionPanel(); }
+// preview: after picking an action, play forward N s to reveal the outcome, then snap back to the marked frame
+let _previewTo=null;
+function previewThenReturn(){ if(!vid.src||!pending||!$('preview').checked) return;
+  const back=pending.t, dur=Math.max(1, parseFloat($('previewsec').value)||5);
+  vid.currentTime=back; _previewTo={back, target:Math.min(vid.duration||1e9, back+dur)}; vid.play(); setPlayBtn(); }
+function endPreview(back){ _previewTo=null; if(vid.src){ vid.pause(); setPlayBtn(); if(back!=null) vid.currentTime=back; } }
 function renderActionPanel(){ const p=$('panel-action');
   if(!pending){ p.innerHTML='<span class="dim">Click the player who made the play →</span>'; return; }
   if(!pending.action){ p.innerHTML='<b>Pick action</b>'+Object.entries(ACTKEY).map(([k,a])=>
@@ -361,6 +370,7 @@ function tintHalf(s,a){ const W=cv.width,H=cv.height; ctx.fillStyle=`rgba(245,19
 function draw(){
   requestAnimationFrame(draw);
   if(!vid.src||!cv.width) return;
+  if(_previewTo && (vid.currentTime>=_previewTo.target-0.02 || vid.ended)){ const b=_previewTo.back; _previewTo=null; vid.pause(); vid.currentTime=b; setPlayBtn(); }
   ctx.clearRect(0,0,cv.width,cv.height); const t=vid.currentTime;
   if(mode==='ball'){
     if($('ghost').checked){ const p=prevBall(t); if(p){ ring(p.x,p.y,11,'rgba(51,209,122,.35)',2); } }
