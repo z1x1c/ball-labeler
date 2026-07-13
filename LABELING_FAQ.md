@@ -7,6 +7,9 @@ then keep it open for reference. If you just want install/setup steps, see the
 **The one-sentence version:** watch the rally, mark what happened at the moment it
 happened, and when you're not sure — skip it. A smaller clean set beats a big noisy one.
 
+> 💬 **In a hurry?** Open **`faq.html`** (double-click it) and just *ask* — an offline
+> assistant answers these questions instantly. No internet needed.
+
 ---
 
 ## Table of contents

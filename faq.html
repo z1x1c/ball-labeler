@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🏐 Labeling Assistant</title>
+<style>
+  :root{ --bg:#0f1420; --panel:#182034; --line:#26314d; --ink:#e7ecf5; --dim:#8a97b0;
+         --accent:#f5c542; --me:#22304d; --bot:#141d31; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header{padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px}
+  header .sub{color:var(--dim);font-size:13px}
+  header .off{margin-left:auto;color:var(--accent);font-size:12px;border:1px solid var(--line);border-radius:20px;padding:3px 10px}
+  header a{color:var(--accent)}
+  #chat{flex:1;overflow-y:auto;padding:20px;max-width:820px;width:100%;margin:0 auto}
+  .msg{display:flex;margin:12px 0}
+  .msg.me{justify-content:flex-end}
+  .bubble{max-width:88%;padding:12px 15px;border-radius:14px;border:1px solid var(--line)}
+  .me .bubble{background:var(--me);border-bottom-right-radius:4px}
+  .bot .bubble{background:var(--bot);border-bottom-left-radius:4px}
+  .bubble b{color:#fff}
+  .tag{display:inline-block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);
+       background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.3);border-radius:20px;padding:1px 8px;margin-bottom:8px}
+  .related{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .related .rlabel{font-size:12px;color:var(--dim);margin-bottom:6px}
+  .chip{display:inline-block;background:var(--me);border:1px solid var(--line);color:var(--ink);border-radius:16px;
+        padding:5px 11px;margin:3px 4px 3px 0;font-size:13px;cursor:pointer}
+  .chip:hover{border-color:var(--accent)}
+  .starter{color:var(--dim);font-size:13px;margin:6px 0 4px}
+  footer{padding:12px 18px;background:var(--panel);border-top:1px solid var(--line)}
+  .inrow{display:flex;gap:8px;max-width:820px;margin:0 auto}
+  #q{flex:1;background:#0e1524;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 13px;font-size:15px}
+  #q:focus{outline:none;border-color:var(--accent)}
+  #send{background:var(--accent);color:#111;border:none;border-radius:10px;padding:0 18px;font-weight:700;cursor:pointer;font-size:15px}
+  code{background:#0e1524;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.92em;color:var(--accent)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+  <header>
+    <h1>🏐 Labeling Assistant</h1>
+    <span class="sub">Ask anything about how to label &middot; answers come straight from the <a href="LABELING_FAQ.md">FAQ</a></span>
+    <span class="off">● works offline</span>
+  </header>
+  <div id="chat"></div>
+  <footer>
+    <div class="inrow">
+      <input id="q" placeholder="e.g. when do I mark a dig?  ·  how do I tag the jersey number?" autocomplete="off">
+      <button id="send">Ask</button>
+    </div>
+  </footer>
+
+<script>
+// ---------------------------------------------------------------------------
+// Fully-offline FAQ assistant: keyword + synonym retrieval over the FAQ.
+// No model, no network — it returns the authoritative FAQ answer, never invents one.
+// ---------------------------------------------------------------------------
+const FAQ = [
+ {s:"Basics", q:"What am I doing and why does it matter?",
+  a:"You're creating the <b>ground truth</b> an AI learns volleyball from: where the <b>ball</b> is, <b>who did what</b> (and how it ended), and <b>who won each rally</b>. The model is only ever as good as the labels — clean, consistent, varied labels make it work; guessed or sloppy ones teach it the wrong thing. Your judgment is the product.",
+  t:["purpose","why","point","goal","training","data","model","learn"]},
+
+ {s:"Golden rule", q:"What if I'm not sure about a play?",
+  a:"<b>Skip it.</b> A wrong label actively teaches the model something false; a missing label costs nothing. Only label what you can confidently identify — this is the #1 rule.",
+  t:["unsure","not sure","dont know","confused","uncertain","guess","doubt","skip","ambiguous"]},
+
+ {s:"Golden rule", q:"Quantity or quality — how many labels should I aim for?",
+  a:"<b>Diversity beats volume.</b> 200 labels spread across many rallies, players and situations are worth more than 2,000 from one rally. There's no fixed quota — label well and move around the match. If a coordinator gave you a target, follow that.",
+  t:["how many","quantity","quota","number of labels","count","enough","volume","target"]},
+
+ {s:"Actions", q:"When exactly do I place an action marker?",
+  a:"At the <b>moment of contact</b> — the instant the player touches the ball (the spike hit, the hands on the set, the platform on a pass). That pose is what tells the model a dig from a set from a spike. Mark the <b>touch</b>, not when the player is 'most visible' before/after it.",
+  t:["when","timing","moment","contact","frame","place marker","which frame","mark action"]},
+
+ {s:"Actions", q:"How precise does the timing and position need to be?",
+  a:"<b>Approximate is fine.</b> Timing within ~0.1–0.2 s of the contact is plenty (the model takes a window around your mark). Position just needs to be <b>on the right player</b> (roughly their torso) — it's used to find which player, not a pixel spot. Being <i>consistent</i> matters more than being exact. Use <code>Ctrl+scroll</code> to zoom if they're small.",
+  t:["precise","precision","exact","accurate","how close","pixel","perfect","torso","position"]},
+
+ {s:"Actions", q:"Do I follow the player and re-mark them as they move?",
+  a:"No — <b>one marker per action</b>. An action is an <i>event</i>, not a track. Place a single marker at the contact frame and move on. You don't re-mark the player as they move.",
+  t:["follow","track","re-mark","multiple markers","one marker","moving","per action"]},
+
+ {s:"Actions", q:"There's no clean contact frame (blur, hidden, framerate skipped it).",
+  a:"Use the <b>nearest frame</b> where you can place the player. The action and outcome usually come from the play context, not that one frame. Approximate contact time is fine.",
+  t:["no contact","blur","blurry","hidden","framerate","skipped","cant see contact","missing frame"]},
+
+ {s:"Actions", q:"The player who made the action is hidden behind someone — can I still label them?",
+  a:"If you can see <b>any part</b> of them, click that part (the pose window usually catches clearer frames just before/after, as they move out from behind). If they're <b>fully hidden</b>, <b>skip it</b> — don't guess a spot, because the app would grab the <i>nearest visible</i> player (the one in front) and mislabel the action onto them. A missing label beats a wrong one.",
+  t:["hidden","behind","occluded","cant see player","obscured","blocked view","player hidden","behind someone","covered"]},
+
+ {s:"Actions", q:"Two things happen at the same instant (a spike and a block).",
+  a:"Label them as <b>two separate actions</b>: click the attacker → classify, then click the blocker → classify. Both are saved at that moment.",
+  t:["two","both","same time","simultaneous","spike and block","two actions","at once","multiple"]},
+
+ {s:"Actions", q:"What's the difference between a Receive and a Dig?",
+  a:"A <b>receive</b> is passing a <b>serve</b> (serve-receive). A <b>dig</b> is defending an <b>attack</b> (a spiked/hit ball). Same skill, different situation — volleyball tracks them separately (passing rating vs digs), so we do too. Press <code>r</code> for receive, <code>d</code> for dig.",
+  t:["receive","dig","difference","pass","passing","reception","serve receive","defense","vs"]},
+
+ {s:"Actions", q:"What is the 'Other' action for?",
+  a:"Rallies that end because someone <i>not playing the ball</i> broke a rule — a <b>net touch, foot fault, four hits, reach over, rotation</b> fault, or other. No model can infer that from the ball, so you mark it: click the offending player → <code>o</code> Other → the fault type. They all mean <i>point to the other team</i>.",
+  t:["other","fault","net touch","foot fault","four hits","reach over","rotation fault","violation","rule"]},
+
+ {s:"Actions", q:"What do the serve outcomes mean?",
+  a:"<b>ace</b> = point off the serve; <b>effective</b> = tough serve (opponent out of system); <b>bad</b> = easy serve; <b>error</b> = missed (net/out/foot fault).",
+  t:["serve","serving","ace","effective","bad","serve outcome","serve error"]},
+
+ {s:"Actions", q:"What do the receive / dig outcomes mean (and what's an overpass)?",
+  a:"A pass/dig quality scale: <b>perfect</b> (all options open) → <b>good</b> → <b>in</b> (playable but poor). <b>overpass</b> = it went <i>over the net</i>, giving the other team a free attack. <b>error</b> = shanked / aced / unplayable. <b>kill</b> = the rare case it directly scored.",
+  t:["receive outcome","dig outcome","perfect","good","overpass","over the net","pass rating","quality","kill"]},
+
+ {s:"Actions", q:"What do the attack outcomes mean (kill, tip, block-out, blocked)?",
+  a:"<i>How the point was won or lost</i>: <b>kill</b> = hard spike scores; <b>tip</b> = tip/roll scores; <b>block-out</b> = you hit off the block and it goes out (a 'tool'); <b>in</b> = the attack was dug up, rally continues; <b>blocked</b> = stuffed by the block; <b>error</b> = hit out or into the net.",
+  t:["attack","spike","hit","kill","tip","block-out","tool","blocked","attack error","attack outcome"]},
+
+ {s:"Actions", q:"What do the set outcomes mean (dump, good set)?",
+  a:"<b>assist</b> = your set led to a teammate's kill; <b>dump</b> = the setter attacked the second ball for a point; <b>good set</b> = a good, hittable set that just didn't lead to a point; <b>error</b> = double/lift/handling fault, or a set out of bounds.",
+  t:["set","setter","assist","dump","good set","set outcome","set error"]},
+
+ {s:"Actions", q:"What do the block outcomes mean (stuff, touch)?",
+  a:"<b>stuff</b> = blocked straight down for a point; <b>touch</b> = you touched it (slowed it / kept it in play — a soft block); <b>error</b> = net touch or blocking error.",
+  t:["block","stuff","touch","soft block","block outcome","block error"]},
+
+ {s:"Actions", q:"The quality grades feel subjective (perfect vs good). Does it matter?",
+  a:"Not much right now. The model currently only cares whether a play <b>scored a point</b>, <b>kept the ball in play</b>, or was an <b>error</b>. The fine grades are <b>saved for later</b> (future stats like passing charts, hitting %). <b>If grading slows you down, just pick the coarse one</b> — kill / in / error — and move on.",
+  t:["subjective","quality","perfect vs good","grade","grading","fine","coarse","matter","slow"]},
+
+ {s:"Actions", q:"A stuffed attack — do I label it as attack → blocked or block → stuff?",
+  a:"Either — they're the same event from the two sides. Pick one convention (whichever is easier) and stick to it. Don't label both for the same touch.",
+  t:["blocked","stuff","both","attack blocked","block stuff","convention","double"]},
+
+ {s:"Jersey", q:"How do I tag the jersey number (record which player did the action)?",
+  a:"Right after you pick the outcome, just <b>type the jersey number</b> (<code>7</code>, or <code>1</code><code>2</code> for #12). It attaches to that action and shows on the marker. <b>Backspace</b> fixes a typo. This turns labels into per-player stats.",
+  t:["jersey","number","player number","who did","tag player","record player","shirt","name","put","enter","add","type","how tag"]},
+
+ {s:"Jersey", q:"Is tagging the jersey number required?",
+  a:"No — it's optional. Leave it blank and the action is unattributed (still useful). Tag it when you can read the number and it matters.",
+  t:["jersey required","optional","have to","must","blank","skip jersey"]},
+
+ {s:"Jersey", q:"Don't the jersey digits conflict with the outcome number keys?",
+  a:"No. Digits <b>before</b> you pick an outcome select the outcome; digits <b>after</b> set the jersey. The app knows the difference automatically.",
+  t:["conflict","digits","number keys","outcome keys","clash","1 2 3","keys"]},
+
+ {s:"2D Court", q:"I can hear a serve but can't see the server. How do I label it?",
+  a:"Use the <b>2D Court</b> panel. With the lineup set up, it shows <b>who's serving</b> even off-camera. Then: hear the serve on the waveform → glance at the court → <b>click that player on the 2D court</b> → press <code>s</code> → pick the outcome. It's tagged to their jersey, no frame-click needed.",
+  t:["cant see","off camera","off-screen","hidden server","2d court","who serves","serve court","hear"]},
+
+ {s:"2D Court", q:"Should I label an action in both the video and the 2D court?",
+  a:"<b>No — one label per action.</b> Click on the <b>video frame</b> whenever you can see the player (that gives a real image location). Only use the <b>2D court click</b> as a fallback when the player is off-camera. Never both for the same event.",
+  t:["both","2d and video","double label","two views","court and frame","separately"]},
+
+ {s:"2D Court", q:"How do I set up the lineup / rotation?",
+  a:"Click <b>Set lineup</b> → enter each team's <b>6 jersey numbers in serving order</b> (whoever serves first for that team, then the next to rotate in…) → pick who serves the very first point → Save. The court then tracks the rotation from your Score labels.",
+  t:["lineup","set up","rotation","serving order","roster","setup court","configure"]},
+
+ {s:"2D Court", q:"The highlighted server looks wrong / off by one.",
+  a:"Use <b>◀ rot / rot ▶</b> to nudge the rotation for the serving team (a wrong 'serves first' pick or a missed Score label is the usual cause). Or just <b>click the player you know served</b> — that logs the correct jersey regardless of the highlight.",
+  t:["wrong server","off by one","nudge","rot","incorrect","rotation wrong","fix rotation"]},
+
+ {s:"2D Court", q:"There was a substitution — the numbers are wrong now.",
+  a:"Re-open <b>Set lineup</b> and edit the affected team's order, then Save. The rotation math assumes a fixed six, so subs need a manual update.",
+  t:["substitution","sub","swap","change player","bench","rotation wrong sub"]},
+
+ {s:"2D Court", q:"What about the libero?",
+  a:"The libero plays back-row and normally doesn't serve, so the player rotating into the serve position is never the libero. For back-row defense, just tag whoever actually made the play.",
+  t:["libero","back row","defense player","special"]},
+
+ {s:"Ball", q:"Do I have to click the ball on every single frame?",
+  a:"No. Click it as often as is practical along its path — the <b>step</b> box (default 0.30 s) sets how far it auto-jumps after each click, so you're sampling the trajectory, not every frame.",
+  t:["ball","every frame","how often","click ball","step","trajectory","sampling"]},
+
+ {s:"Ball", q:"What do I do during dead time between rallies?",
+  a:"Press <code>n</code> (no ball) on some of those frames. It's <b>valuable</b> — it teaches the model when <i>not</i> to guess a ball. Don't skip dead time entirely; sprinkle <code>n</code> through it.",
+  t:["dead time","between rallies","no ball","n key","dead ball","idle","not in play"]},
+
+ {s:"Ball", q:"The ball is a blur or behind a player — click it or press h?",
+  a:"If you can reasonably tell where it is, click it. If it's genuinely hidden/unclear, press <code>h</code> (hard). Both are useful — <code>h</code> tells the model 'ball's here but ambiguous'.",
+  t:["ball blur","hidden ball","behind player","h key","hard","occluded ball"]},
+
+ {s:"Ball", q:"The ball left the frame — what then?",
+  a:"Press <code>n</code> (it's not visible). When it comes back into frame, resume clicking.",
+  t:["ball off frame","left frame","out of frame","gone","offscreen ball"]},
+
+ {s:"Score", q:"Which team is 'left' vs 'right'?",
+  a:"Set it with the <b>Teams are: ↔ Left/Right</b> (or ↕ Top/Bottom) toggle to match how the teams appear on screen, and keep it consistent for the whole video.",
+  t:["left","right","which team","orientation","top bottom","sides","team side","who won","won","win","rally","scored"]},
+
+ {s:"Score", q:"Why does the score matter for labeling?",
+  a:"Two reasons: it's a stat on its own, <b>and</b> it drives the <b>2D Court rotation</b> — the app figures out who's serving from the sequence of rally winners. So if you want the serving info, label who wins each rally.",
+  t:["why score","score matter","rotation","point","who won","importance"]},
+
+ {s:"Score", q:"Do I have to label every single point?",
+  a:"For the rotation feature to stay accurate, yes — the running server is computed from the full sequence of winners. If you skip points the 'who's serving' readout drifts (you can nudge it back).",
+  t:["every point","all points","skip points","must score","complete score"]},
+
+ {s:"Setup", q:"The video is shaky or has no sound — is that OK?",
+  a:"Yes. Shaky footage and silent video are both fine to label. Sound just <i>helps</i> (you can find contacts on the waveform); it isn't required.",
+  t:["shaky","wobble","stable","no sound","silent","audio","quiet","camera","ok"]},
+
+ {s:"Tools", q:"How do I zoom in for a precise click?",
+  a:"Hold <b>Ctrl and scroll</b> (or pinch on a trackpad) over the video to zoom toward your cursor — great in fullscreen when the ball or player is small. A badge shows the level; click it or scroll back out to reset. Clicks stay accurate at any zoom.",
+  t:["zoom","closer","bigger","magnify","ctrl scroll","precise","small"]},
+
+ {s:"Tools", q:"How do I undo a mistake or delete a label?",
+  a:"<code>z</code> undoes your last label (any type). <code>x</code> deletes the label at the current playhead. You can also open the <b>label list</b> (click the count in the top bar), jump to any label, and delete it with ✕.",
+  t:["undo","delete","remove","mistake","fix","wrong label","z","x","erase","correct"]},
+
+ {s:"Tools", q:"How do I find a hit I can hear but can't see?",
+  a:"Use the <b>audio waveform</b> below the video — contacts and whistles show up as spikes. Click a spike to jump there, or drag/scroll to scrub. Especially useful for serves or hits that are off-frame or blurred.",
+  t:["waveform","audio","sound","hear","spike","find hit","whistle","contact sound"]},
+
+ {s:"Tricky", q:"Is a free ball / down ball an attack?",
+  a:"Yes — label it <code>attack</code> with the outcome that fits (<code>in</code> if just returned, <code>kill</code> if it scores). If it's really a set/pass over, use your best judgment; consistency matters more than the exact label.",
+  t:["free ball","down ball","not spike","easy ball","attack or not"]},
+
+ {s:"Tricky", q:"There's a joust at the net — how do I label it?",
+  a:"Label the touches you can clearly attribute; skip the ones you can't. If you can't tell whose touch was last/decisive, skip the individual action but still mark the <b>Score</b> (who won the rally).",
+  t:["joust","net battle","both at net","cant tell","who touched"]},
+
+ {s:"Tricky", q:"Do warm-ups, timeouts, replays or crowd shots get labeled?",
+  a:"No — only live rallies. In Ball mode you can mark dead time with <code>n</code>, but don't label actions or score for non-play.",
+  t:["warm up","timeout","replay","crowd","non play","between sets","not live"]},
+
+ {s:"Data", q:"Is my video uploaded anywhere?",
+  a:"<b>No.</b> Everything runs locally in your browser; the video is read from your disk and never sent anywhere. No accounts, no servers, fully offline.",
+  t:["upload","privacy","internet","cloud","sent","server","private","offline"]},
+
+ {s:"Data", q:"I lost my labels!",
+  a:"They auto-save per video in the browser — same browser + same video brings them back. If you exported a <code>.json</code>, use <b>Import</b> to reload it. This is exactly why we export backups.",
+  t:["lost","gone","disappeared","recover","missing labels","auto save","import"]},
+
+ {s:"Data", q:"How do I back up or send my work?",
+  a:"Use <b>⬇ Export video + labels</b> (one <code>.zip</code> with both) to send to someone, or <b>labels .json</b> if they already have the video. Export a file periodically — the browser cache alone isn't a safe backup.",
+  t:["backup","export","save","send","share","zip","json","download work"]},
+
+ {s:"Setup", q:"How do I open the labeler?",
+  a:"Double-click <code>index.html</code> in the folder you downloaded — it opens in your browser. If a video won't load, use the tiny 'local server' method in the README. No install needed.",
+  t:["open","start","launch","how to run","index.html","install"]},
+
+ {s:"Setup", q:"Which version should everyone use?",
+  a:"Whatever the team agreed on — everyone should use the <b>same</b> version so labels stay consistent. Don't mix versions mid-project.",
+  t:["version","commit","same","which version","update","consistent"]},
+
+ {s:"Data", q:"Which browsers work?",
+  a:"Chrome, Edge, Firefox and Safari (recent versions) all work.",
+  t:["browser","chrome","edge","firefox","safari","which browser","compatible"]},
+];
+
+// ---- synonym expansion: query word -> extra canonical words to also match ----
+const SYN = {
+  pass:["receive"], passing:["receive"], reception:["receive"], "serve-receive":["receive"],
+  spike:["attack","kill"], hit:["attack"], hitting:["attack"], attacker:["attack"],
+  defend:["dig"], defence:["dig"], defense:["dig"], defensive:["dig"],
+  number:["jersey"], numbers:["jersey"], shirt:["jersey"], name:["jersey"], names:["jersey"],
+  put:["jersey"], enter:["jersey"], add:["jersey"], type:["jersey"],
+  wobble:["shaky"], wobbly:["shaky"], jittery:["shaky"], stabilize:["shaky"], stable:["shaky"],
+  sound:["audio"], hear:["audio","waveform"], hearing:["audio"], quiet:["audio"], mute:["audio"], silent:["audio"],
+  bigger:["zoom"], closer:["zoom"], magnify:["zoom"], enlarge:["zoom"], small:["zoom"],
+  erase:["delete","undo"], remove:["delete"], mistake:["undo","delete"], wrong:["undo","delete","fix"], correct:["undo","fix"],
+  save:["export","backup"], download:["export"], send:["export"], share:["export"], lost:["lost","recover"],
+  upload:["privacy"], cloud:["privacy"], private:["privacy"], internet:["privacy","offline"],
+  point:["score"], points:["score"], won:["score"], win:["score"], winner:["score"], scored:["score"],
+  rotate:["rotation"], rotating:["rotation"], "serving-order":["rotation","lineup"], roster:["lineup"],
+  sub:["substitution"], subbed:["substitution"], bench:["substitution"], swap:["substitution"],
+  timing:["contact","when"], moment:["contact","when"], frame:["contact"], place:["mark"], marking:["mark"],
+  tool:["block-out"], setter:["set","dump"], stuffed:["stuff","blocked"],
+  camera:["shaky"], blurry:["blur"], blurred:["blur"], occluded:["hidden"], obscured:["hidden"],
+  count:["many","quota"], amount:["many"], quantity:["many"], target:["many","quota"],
+  begin:["open","start"], run:["open"], launch:["open"],
+};
+const STOP = new Set("a an the is are do i my me you it to of in on at for and or how what when do does can should if this that with be as your".split(" "));
+
+function toks(s){ return (s.toLowerCase().match(/[a-z0-9][a-z0-9-]*/g)||[]).filter(w=>w.length>1&&!STOP.has(w)); }
+function expand(ws){ const out=new Set(); for(const w of ws){ out.add(w); (SYN[w]||[]).forEach(x=>out.add(x)); } return [...out]; }
+
+// build a weighted term map per entry: question x5, tags x4, answer x1 (deduped)
+const IDX = FAQ.map(e=>{ const m=new Map();
+  const add=(w,wt)=>m.set(w,(m.get(w)||0)+wt);
+  toks(e.q).forEach(w=>add(w,5)); (e.t||[]).forEach(t=>toks(t).forEach(w=>add(w,4)));
+  const seen=new Set(); toks(e.a).forEach(w=>{ if(!seen.has(w)){ seen.add(w); add(w,1); } });
+  return m; });
+
+function search(query){ const qs=expand(toks(query)); if(!qs.length) return [];
+  const scored=IDX.map((m,i)=>{ let s=0; for(const w of qs) s+=(m.get(w)||0); return {i,s}; })
+    .filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+  return scored.slice(0,4).map(x=>({...FAQ[x.i], score:x.s})); }
+
+// ---- UI ----
+const $=id=>document.getElementById(id), chat=$("chat");
+function bubble(who, html){ const d=document.createElement("div"); d.className="msg "+who;
+  d.innerHTML=`<div class="bubble">${html}</div>`; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; return d; }
+function answer(query){
+  bubble("me", esc(query));
+  const hits=search(query);
+  if(!hits.length || hits[0].score < 4){
+    let h=`I couldn't find a specific answer. The golden rule always applies: <b>when in doubt, skip it</b> — a wrong label is worse than a missing one. Try rephrasing, or browse the full <a href="LABELING_FAQ.md">FAQ</a>.`;
+    if(hits.length){ h+=`<div class="related"><div class="rlabel">Maybe one of these?</div>${hits.map(chip).join("")}</div>`; }
+    bubble("bot", h); return;
+  }
+  const top=hits[0];
+  let h=`<span class="tag">${top.s}</span><br>${top.a}`;
+  const rel=hits.slice(1).filter(x=>x.score>=4);
+  if(rel.length){ h+=`<div class="related"><div class="rlabel">Related</div>${rel.map(chip).join("")}</div>`; }
+  bubble("bot", h);
+}
+function chip(e){ return `<span class="chip" onclick="answer(this.textContent)">${esc(e.q)}</span>`; }
+function esc(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function ask(){ const v=$("q").value.trim(); if(!v) return; $("q").value=""; answer(v); }
+$("send").onclick=ask;
+$("q").addEventListener("keydown", e=>{ if(e.key==="Enter") ask(); });
+
+// greeting + starter questions
+(function(){
+  bubble("bot", `Hi! I answer questions about <b>how to label</b>, straight from the FAQ — fully offline. Ask me anything, or tap a question below.`);
+  const starters=["When do I mark a dig?","What's the difference between a receive and a dig?","How do I tag the jersey number?","How do I label a serve I can't see?","What if I'm not sure about a play?","How do I zoom in?","Is my video uploaded anywhere?"];
+  const d=document.createElement("div"); d.className="msg bot";
+  d.innerHTML=`<div class="bubble"><div class="starter">Popular questions:</div>${starters.map(q=>`<span class="chip" onclick="answer(this.textContent)">${q}</span>`).join("")}</div>`;
+  chat.appendChild(d);
+})();
+window.answer=answer;
+</script>
+</body>
+</html>

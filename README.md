@@ -12,6 +12,9 @@ No coding needed. If you can use a web browser, you can use this.
 > 📖 **Labelers: read [`LABELING_FAQ.md`](LABELING_FAQ.md)** — a detailed guide to *how to
 > label well* (what to mark, when, the action/outcome meanings, tricky cases, and the
 > golden rules). This README is setup; the FAQ is the craft.
+>
+> 💬 **Or just ask** — open **`faq.html`** (double-click it) for an **offline chat assistant**
+> that answers labeling questions instantly from the FAQ. No internet, no AI model, no setup.
 
 There are three labeling modes, and you switch between them with the buttons at the top:
 
