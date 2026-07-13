@@ -175,9 +175,9 @@ let videoName="", videoFile=null, labels=[], lastToast=0, mode='ball', pending=n
 let audioEnv=null, audioRate=0;   // audio peak envelope (bins) + bins/sec, for the waveform
 
 // Fine outcomes are stored; for the model they collapse to point (ace/kill/tip/block-out/stuff/dump) /
-// in-play (effective/bad/perfect/good/in/touch/dig/assist) / error (error/out/blocked). Fine grades = future insurance.
-const ACTIONS={ serve:['ace','effective','bad','error'], receive:['perfect','good','in','error','kill'],
-  attack:['kill','tip','block-out','in','blocked','error'], dig:['perfect','good','in','error','kill'],
+// in-play (effective/bad/perfect/good/in/overpass/touch/dig/assist) / error (error/out/blocked). Fine grades = future insurance.
+const ACTIONS={ serve:['ace','effective','bad','error'], receive:['perfect','good','in','overpass','error','kill'],
+  attack:['kill','tip','block-out','in','blocked','error'], dig:['perfect','good','in','overpass','error','kill'],
   set:['assist','dump','in','out','error'], block:['stuff','touch','error'],
   other:['net touch','foot fault','four hits','reach over','rotation','other'] };
 const ACTKEY={ s:'serve', r:'receive', a:'attack', b:'block', d:'dig', t:'set', o:'other' };
