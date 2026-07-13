@@ -138,12 +138,13 @@ how far it jumps after each click (0.30 s is a good default).
    separately from a **Dig**, which is defending an attack.)
 4. Pick the **outcome** with **`1`**, **`2`**, **`3`**… — e.g. serve → ace / effective / bad /
    error; receive & dig → perfect / good / in / overpass / error / kill; **attack → kill / tip /
-   block-out / in / blocked / error** (*how* the point was won); set → assist / dump / in / out / error.
+   block-out / in / blocked / error** (*how* the point was won); set → assist / dump / good set / error
+   (**good set** = a set that didn't lead to a point but was still a good ball to hit).
 
 > **The detail is future insurance.** Both the quality grades (perfect/good/effective) *and*
 > the attack methods (kill/tip/block-out) are *saved*, but a model treats them by result for
 > now — what changes a rally is only **point** (ace/kill/tip/block-out/stuff/dump), **kept in
-> play** (effective/bad/perfect/good/in/overpass/touch/dig/assist), or **error** (error/out/blocked).
+> play** (effective/bad/perfect/good/in/overpass/touch/dig/assist/good set), or **error** (error/out/blocked).
 > Label the detail if you like; it's ready when a finer model is worth training, and ignored
 > until then. If it slows you down, just use kill/in/error.
 
@@ -184,6 +185,23 @@ switch it off entirely. Pick the outcome any time — even mid-preview — to st
   saved at that moment.
 - **Not sure it happened, or who did it? Skip it.** A wrong label hurts more than a missing
   one — only label what you can confidently identify.
+
+### 🏐 2D Court — who's serving, even off-camera
+Sometimes the camera doesn't show the server — but you can *hear* the serve on the waveform.
+The **2D Court** panel (below the audio) tells you **who's serving** by tracking the rotation,
+so you can label it accurately.
+
+1. Click **Set lineup** and enter each team's **6 jersey numbers in serving order** (the
+   starting server first, then the next to rotate in…), and pick **who serves first**.
+2. The court then draws both teams in their current rotation and **highlights the server**
+   (gold, zone 1) with a live *"Serving: #7"* readout. It **advances automatically from your
+   Score labels** — so keep marking who wins each rally.
+3. To log a serve you can't see: hear it → glance at the court → **click that player on the
+   court** → press **`s`** (serve) → outcome. The label is tagged to their jersey, no frame-click needed.
+
+It's **deterministic** (pure rotation math — no CV, fully offline) and assumes no substitutions
+and correct Score labels. If the highlighted server is off by one, nudge it with **◀ rot / rot ▶**;
+on a **substitution**, just re-open **Set lineup** and edit. The lineup travels with your export.
 
 ### Score mode — who won each rally
 Play the match, and each time a point is scored, press **`1`** if the **left** team won

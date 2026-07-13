@@ -54,6 +54,14 @@
   .wave{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .wave .wavehead{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:12px;margin-bottom:6px;flex-wrap:wrap}
   .wave canvas{width:100%;height:72px;display:block;background:#0b1120;border-radius:6px;cursor:grab;touch-action:none}
+  #court{height:240px;cursor:pointer}
+  #lineupmodal{position:fixed;inset:0;background:rgba(4,8,16,.72);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+  .lucard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .lurow{display:flex;align-items:center;gap:12px;margin:8px 0}
+  .lulbl{width:96px;flex-shrink:0;font-weight:600;color:var(--ink)}
+  .luins{display:flex;gap:6px;flex-wrap:wrap}
+  .luins input{width:42px;text-align:center;background:#0e1524;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 4px;font-size:14px}
+  .lufs.on{background:var(--accent);color:#111;border-color:var(--accent)}
   .wave canvas:active{cursor:grabbing}
   .wave label{color:var(--dim)} .wave input[type=number]{width:50px;background:#0e1524;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px}
   .count{cursor:pointer}
@@ -164,7 +172,37 @@
     <canvas id="wave" height="72"></canvas>
   </div>
 
+  <div class="wave" id="courtwrap" style="display:none">
+    <div class="wavehead">🏐 <b style="color:var(--ink)">2D Court</b> — rotation-tracked; shows who's serving even when they're off-camera.
+      <b id="courtserve" style="color:var(--accent);margin-left:6px"></b>
+      <span class="sp" style="flex:1"></span>
+      <button class="btn" onclick="rotNudge(-1)" title="if the highlighted server is off by one rotation">◀ rot</button>
+      <button class="btn" onclick="rotNudge(1)" title="nudge rotation forward">rot ▶</button>
+      <button class="btn" onclick="openLineup()">Set lineup</button>
+      <label><input type="checkbox" id="courttoggle" checked onchange="$('court').style.display=this.checked?'block':'none'"> show</label>
+    </div>
+    <canvas id="court" height="240"></canvas>
+  </div>
+
   <div class="labellist" id="labellist" style="display:none"><div id="labelrows"></div></div>
+
+  <!-- lineup setup modal -->
+  <div id="lineupmodal" style="display:none">
+    <div class="lucard">
+      <h3 style="margin:0 0 4px">Set lineup <span class="dim" style="font-weight:400">— serving order</span></h3>
+      <p class="dim" style="margin:0 0 14px;font-size:13px;line-height:1.5">Enter each team's <b>6 jersey numbers in the order they serve</b> (the starting server first,
+        then the next to rotate in, and so on). Pick who serves the very first point. The court then tracks the
+        rotation from your <b>Score</b> labels — so label who wins each rally. Subs? Just edit this and re-save.</p>
+      <div class="lurow"><div class="lulbl" id="luAlbl">Team A</div><div id="luAin" class="luins"></div></div>
+      <div class="lurow"><div class="lulbl" id="luBlbl">Team B</div><div id="luBin" class="luins"></div></div>
+      <div class="lurow" style="margin-top:6px"><div class="lulbl">Serves first</div>
+        <div class="seg"><button class="btn lufs on" data-fs="A" onclick="pickFirst('A')" id="lufsA">Team A</button><button class="btn lufs" data-fs="B" onclick="pickFirst('B')" id="lufsB">Team B</button></div></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn" onclick="closeLineup()">Cancel</button>
+        <button class="btn" style="background:var(--accent);color:#111;border-color:var(--accent);font-weight:700" onclick="saveLineupForm()">Save lineup</button>
+      </div>
+    </div>
+  </div>
 </main>
 
 <div class="toast" id="toast"></div>
@@ -175,13 +213,14 @@ const $=id=>document.getElementById(id);
 const vid=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
 let videoName="", videoFile=null, labels=[], lastToast=0, mode='ball', pending=null, courtOri='lr', scoreFlash=null, history=[], lastAction=null;
 let zoom={z:1,tx:0,ty:0};
+let lineup=null;   // {A:[6 jerseys serve-order], B:[6], firstServe:'A'|'B', offset:{A,B}} — 2D court rotation
 let audioEnv=null, audioRate=0;   // audio peak envelope (bins) + bins/sec, for the waveform
 
 // Fine outcomes are stored; for the model they collapse to point (ace/kill/tip/block-out/stuff/dump) /
-// in-play (effective/bad/perfect/good/in/overpass/touch/dig/assist) / error (error/out/blocked). Fine grades = future insurance.
+// in-play (effective/bad/perfect/good/in/overpass/touch/dig/assist/good set) / error (error/out/blocked). Fine grades = future insurance.
 const ACTIONS={ serve:['ace','effective','bad','error'], receive:['perfect','good','in','overpass','error','kill'],
   attack:['kill','tip','block-out','in','blocked','error'], dig:['perfect','good','in','overpass','error','kill'],
-  set:['assist','dump','in','out','error'], block:['stuff','touch','error'],
+  set:['assist','dump','good set','error'], block:['stuff','touch','error'],
   other:['net touch','foot fault','four hits','reach over','rotation','other'] };
 const ACTKEY={ s:'serve', r:'receive', a:'attack', b:'block', d:'dig', t:'set', o:'other' };
 const COLORS={ ball:'#33d17a', ball_absent:'#ff6b6b', ball_hard:'#c792ea', action:'#4dc3ff', score:'#f5c542' };
@@ -198,6 +237,7 @@ const KEY=n=>"vballlabeler:"+n;
 function save(){ if(videoName) try{ localStorage.setItem(KEY(videoName), JSON.stringify(labels)); }catch(e){} render(); }
 function loadStore(){ if(!videoName) return; history=[]; try{ const s=localStorage.getItem(KEY(videoName)); labels=s?JSON.parse(s):[]; }catch(e){ labels=[]; }
   try{ courtOri=localStorage.getItem(KEY(videoName)+':ori')||'lr'; }catch(e){ courtOri='lr'; }
+  loadLineup();
   render(); if(mode==='score')renderScorePanel(); }
 
 // ---------- video ----------
@@ -208,7 +248,7 @@ function openVideo(file){
   $('empty').style.display='none'; vid.style.display='block'; cv.style.display='block';
   $('seekrow').style.display='flex'; $('transport').style.display='flex'; $('cov').style.display='block';
   vid.onloadedmetadata=()=>{ cv.width=vid.videoWidth||1920; cv.height=vid.videoHeight||1080; $('seek').max=vid.duration||0; resetZoom(); loadStore(); vid.pause(); };
-  $('wavewrap').style.display='block'; decodeAudio(file);
+  $('wavewrap').style.display='block'; $('courtwrap').style.display='block'; decodeAudio(file);
 }
 
 // Decode the video's audio track into a peak envelope (~500 bins/sec, so contact
@@ -260,7 +300,8 @@ function clickPlayer(x,y){ lastAction=null; pending={x:Math.round(x),y:Math.roun
 function pickAction(a){ if(!pending)return; pending.action=a; renderActionPanel(); previewThenReturn(); }
 function pickOutcome(o){ if(!pending||!pending.action)return; const back=pending.t;
   const l={t: back!=null?back:now(), type:'action', x:pending.x, y:pending.y, action:pending.action, outcome:o};
-  pushLabel(l); lastAction=l;                      // type digits next to tag the player's jersey #
+  if(pending.player) l.player=pending.player;      // came from a click on the 2D court
+  pushLabel(l); lastAction=l;                      // type digits next to tag/override the jersey #
   toast(`${pending.action} → ${o} — type # for player`); pending=null; endPreview(back); renderActionPanel(); }
 function cancelPending(){ const back=pending?pending.t:null; pending=null; endPreview(back); renderActionPanel(); }
 // tag/untag the just-labeled action's jersey number via digit / backspace keys
@@ -409,8 +450,9 @@ function draw(){
   } else if(mode==='action'){
     for(const l of nearLabels(t,['action'])){ ring(l.x,l.y,14,'#4dc3ff',3); ctx.fillStyle='#4dc3ff'; ctx.font='bold 16px system-ui';
       ctx.fillText(`${l.action} · ${l.outcome}${l.player?'  #'+l.player:''}`, l.x+18, l.y+5); }
-    if(pending){ const pulse=6+4*Math.sin(Date.now()/140); ring(pending.x,pending.y,12+pulse,'#f5c542',3);
+    if(pending && pending.x!=null){ const pulse=6+4*Math.sin(Date.now()/140); ring(pending.x,pending.y,12+pulse,'#f5c542',3);
       ctx.fillStyle='#f5c542'; ctx.font='bold 15px system-ui'; ctx.fillText(pending.action?('pick outcome'):'pick action', pending.x+18, pending.y+5); }
+    else if(pending && pending.player){ ctx.fillStyle='#f5c542'; ctx.font='bold 20px system-ui'; ctx.fillText(`#${pending.player} (from court) — ${pending.action?'pick outcome':'pick action'}`, 20, 40); }
   } else if(mode==='score'){
     if(scoreFlash){ const age=Date.now()-scoreFlash.t0; if(age<650) tintHalf(scoreFlash.side, 0.30*(1-age/650)); else scoreFlash=null; }
     const [a,b]=sides(); ctx.font='bold 22px system-ui'; ctx.fillStyle='rgba(245,197,66,.6)';
@@ -419,6 +461,7 @@ function draw(){
   $('timetxt').textContent=t.toFixed(2)+'s / '+((vid.duration||0).toFixed(0))+'s';
   if(!seekDrag) $('seek').value=t; $('seektime').textContent=fmt(t)+' / '+fmt(vid.duration);
   drawWave(t);
+  if($('courtwrap').style.display!=='none' && $('courttoggle').checked) drawCourt();
 }
 requestAnimationFrame(draw);
 
@@ -455,6 +498,67 @@ $('wave').addEventListener('wheel', e=>{ if(!audioEnv||!vid.duration) return; e.
   const d=Math.abs(e.deltaX)>=Math.abs(e.deltaY)?e.deltaX:e.deltaY;
   vid.currentTime=clamp(vid.currentTime + (d/$('wave').clientWidth)*waveWin(), 0, vid.duration); if(mode==='score')renderScorePanel(); }, {passive:false});
 
+// ---------- 2D court (deterministic rotation, no CV) ----------
+const cCanvas=$('court'), cx2=cCanvas.getContext('2d'); let courtHit=[], _luFirst='A';
+function loadLineup(){ lineup=null; if(!videoName) return; try{ const s=localStorage.getItem(KEY(videoName)+':lineup'); if(s) lineup=JSON.parse(s); }catch(e){} }
+function saveLineup(){ if(videoName&&lineup) try{ localStorage.setItem(KEY(videoName)+':lineup', JSON.stringify(lineup)); }catch(e){} }
+// Who is serving at time t: start with firstServe; each side-out hands serve over AND rotates the winner one step.
+function rotationAt(t){ if(!lineup) return null;
+  const [a,b]=sides(), K=s=> s===a?'A':(s===b?'B':null);
+  let server=lineup.firstServe; const turns={A:0,B:0}; turns[server]=1;
+  const evs=labels.filter(l=>l.type==='score'&&l.t<t-1e-6).sort((x,y)=>x.t-y.t);
+  for(const ev of evs){ const w=K(ev.scorer); if(w&&w!==server){ server=w; turns[server]++; } }
+  // each team cycles through its serving-order list; index = (serving turns - 1). A team's Nth serving
+  // turn uses list[N-1], so list[0] is each team's first server. Before a team's first serve, turns-1=-1
+  // (mod 6 = 5) correctly places their first server in zone 2, about to rotate in.
+  const rot={}; for(const s of ['A','B']){ let r=turns[s]-1+((lineup.offset&&lineup.offset[s])||0); rot[s]=((r%6)+6)%6; }
+  return {serving:server, rot}; }
+function zoneJersey(s,r,zone){ return lineup[s][(r+(zone-1))%6]; }
+// zone -> normalized [x (0=end line .. 1=net), y] within a half; B mirrored across the net
+const ZA={1:[.24,.76],6:[.24,.5],5:[.24,.24],2:[.72,.76],3:[.72,.5],4:[.72,.24]};
+const ZB={1:[.76,.24],6:[.76,.5],5:[.76,.76],2:[.28,.24],3:[.28,.5],4:[.28,.76]};
+function drawCourt(){ const dpr=window.devicePixelRatio||1, W=cCanvas.clientWidth||600, H=240;
+  if(cCanvas.width!==Math.round(W*dpr)){ cCanvas.width=Math.round(W*dpr); cCanvas.height=Math.round(H*dpr); }
+  cx2.setTransform(dpr,0,0,dpr,0,0); cx2.clearRect(0,0,W,H); courtHit=[];
+  if(!lineup){ cx2.fillStyle='#8a97b0'; cx2.font='14px system-ui'; cx2.textAlign='center';
+    cx2.fillText('Click "Set lineup" to track the rotation and see who is serving.', W/2, H/2); cx2.textAlign='left'; $('courtserve').textContent=''; return; }
+  const [a,b]=sides(), R = vid.src ? rotationAt(vid.currentTime) : {serving:lineup.firstServe, rot:{A:0,B:0}};
+  const ct=22, cb=H-16, cl=36, cr=W-36, mid=(cl+cr)/2, ch=cb-ct;
+  cx2.lineWidth=2; cx2.strokeStyle='#42598a'; cx2.strokeRect(cl,ct,cr-cl,ch);
+  cx2.beginPath(); cx2.moveTo(mid,ct-8); cx2.lineTo(mid,cb+8); cx2.lineWidth=3; cx2.strokeStyle='#7d94d6'; cx2.stroke();
+  cx2.font='600 12px system-ui'; cx2.fillStyle='#8a97b0'; cx2.textAlign='center';
+  cx2.fillText(sideLabel(a), (cl+mid)/2, 14); cx2.fillText(sideLabel(b), (mid+cr)/2, 14);
+  const halves={A:[cl,mid],B:[mid,cr]}, Z={A:ZA,B:ZB};
+  for(const s of ['A','B']){ const [x0,x1]=halves[s], hw=x1-x0, serving=(R.serving===s);
+    for(let zone=1;zone<=6;zone++){ const zc=Z[s][zone], px=x0+zc[0]*hw, py=ct+zc[1]*ch, jersey=zoneJersey(s,R.rot[s],zone), isServer=serving&&zone===1;
+      cx2.beginPath(); cx2.arc(px,py,15,0,7); cx2.fillStyle=isServer?'#f5c542':'#22304d'; cx2.fill();
+      cx2.lineWidth=2; cx2.strokeStyle=isServer?'#fff':'#42598a'; cx2.stroke();
+      cx2.fillStyle=isServer?'#111':'#e7ecf5'; cx2.font='bold 13px system-ui'; cx2.textAlign='center'; cx2.textBaseline='middle';
+      cx2.fillText(jersey||'?', px, py); cx2.textBaseline='alphabetic';
+      cx2.fillStyle='#6b7a99'; cx2.font='9px system-ui'; cx2.fillText('z'+zone, px, py+25);
+      courtHit.push({x:px,y:py,r:16,jersey}); }
+    if(serving){ const z1=Z[s][1], bx=(s==='A'?x0+z1[0]*hw-26:x0+z1[0]*hw+26), by=ct+z1[1]*ch;
+      cx2.beginPath(); cx2.arc(bx,by,5,0,7); cx2.fillStyle='#33d17a'; cx2.fill();
+      cx2.fillStyle='#f5c542'; cx2.font='bold 10px system-ui'; cx2.textAlign='center'; cx2.fillText('SERVE', bx, by-11); }
+  }
+  cx2.textAlign='left';
+  const sj=lineup[R.serving][R.rot[R.serving]];
+  $('courtserve').textContent = sj ? `Serving: #${sj} (${sideLabel(R.serving==='A'?a:b)})` : ''; }
+// click a player on the court -> start an action tagged with their jersey (log an off-camera serve, etc.)
+cCanvas.addEventListener('click', e=>{ if(!lineup||!vid.src) return; const r=cCanvas.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  let best=null,bd=1e9; for(const h of courtHit){ const d=Math.hypot(h.x-x,h.y-y); if(d<bd){bd=d;best=h;} }
+  if(best&&bd<=best.r+8){ if(mode!=='action')setMode('action'); lastAction=null; pending={x:null,y:null,t:now(),player:best.jersey}; renderActionPanel(); toast('#'+best.jersey+' selected — press s for serve, then outcome'); } });
+function rotNudge(d){ if(!lineup) return; const R=rotationAt(vid.currentTime); if(!R) return; lineup.offset=lineup.offset||{A:0,B:0}; lineup.offset[R.serving]=((lineup.offset[R.serving]||0)+d); saveLineup(); drawCourt(); toast('rotation nudged for '+sideLabel(R.serving==='A'?sides()[0]:sides()[1])); }
+// lineup modal
+function openLineup(){ if(!vid.src){ toast('load a video first'); return; } const [a,b]=sides(); $('luAlbl').textContent=sideLabel(a); $('luBlbl').textContent=sideLabel(b);
+  for(const s of ['A','B']){ const box=$('lu'+s+'in'); box.innerHTML=''; for(let i=0;i<6;i++){ const inp=document.createElement('input'); inp.id='lu'+s+i; inp.maxLength=3; inp.placeholder=(i+1); if(lineup&&lineup[s]) inp.value=lineup[s][i]||''; box.appendChild(inp); } }
+  _luFirst=(lineup&&lineup.firstServe)||'A'; pickFirst(_luFirst); $('lineupmodal').style.display='flex'; }
+function pickFirst(x){ _luFirst=x; document.querySelectorAll('.lufs').forEach(el=>el.classList.toggle('on', el.dataset.fs===x)); }
+function closeLineup(){ $('lineupmodal').style.display='none'; }
+function saveLineupForm(){ const g=(s,i)=>($('lu'+s+i).value||'').trim(); const A=[],B=[]; for(let i=0;i<6;i++){A.push(g('A',i));B.push(g('B',i));}
+  if(A.concat(B).some(v=>!v)){ toast('fill in all 12 jersey numbers'); return; }
+  lineup={A,B,firstServe:_luFirst,offset:{A:0,B:0}}; saveLineup(); closeLineup(); drawCourt(); toast('lineup saved — the court now tracks the rotation'); }
+
 // ---------- coverage + count ----------
 function render(){
   const c={ball:0,ball_absent:0,ball_hard:0,action:0,score:0}; for(const l of labels) c[l.type]=(c[l.type]||0)+1;
@@ -483,8 +587,9 @@ function gotoLabel(l){ vid.pause(); setPlayBtn(); vid.currentTime=l.t;
 function delLabel(l){ const i=labels.indexOf(l); if(i<0) return; labels.splice(i,1); save(); if(mode==='score')renderScorePanel(); toast('deleted '+labelDesc(l)); }
 
 // ---------- export / import ----------
-function exportData(){ return { video:videoName, orientation: courtOri==='lr'?'left-right':'top-bottom', labels: labels.map(l=>{ const o={t:l.t,type:l.type};
-  if(l.x!=null){o.x=l.x;o.y=l.y;} if(l.action){o.action=l.action;o.outcome=l.outcome;} if(l.player)o.player=l.player; if(l.scorer){o.scorer=l.scorer;} return o; }) }; }
+function exportData(){ const d={ video:videoName, orientation: courtOri==='lr'?'left-right':'top-bottom', labels: labels.map(l=>{ const o={t:l.t,type:l.type};
+  if(l.x!=null){o.x=l.x;o.y=l.y;} if(l.action){o.action=l.action;o.outcome=l.outcome;} if(l.player)o.player=l.player; if(l.scorer){o.scorer=l.scorer;} return o; }) };
+  if(lineup) d.lineup=lineup; return d; }
 function downloadBlob(blob, name){ const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name; a.style.display='none';
   document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); }, 4000); }
@@ -495,6 +600,7 @@ $('jsonPick').onchange=e=>{ const f=e.target.files[0]; if(!f) return;
   const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result);
     labels=(d.labels||[]).filter(l=>l&&typeof l.t==='number'); history=[]; labels.sort((a,b)=>a.t-b.t);
     if(d.orientation) courtOri = d.orientation==='top-bottom'?'tb':'lr';
+    if(d.lineup){ lineup=d.lineup; saveLineup(); }
     save(); if(mode==='score')renderScorePanel(); toast('imported '+labels.length+' labels'); }catch(err){ toast('bad json'); } }; rd.readAsText(f); };
 
 // ---- bundle export: video + labels.json as one .zip (no library, streams the video) ----
