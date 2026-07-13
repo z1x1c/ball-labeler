@@ -170,6 +170,20 @@ the play context, not that one frame. Approximate contact time is fine.
 separate actions**: click the attacker → classify, then click the blocker → classify. Both
 are saved at that moment.
 
+**Q: Two players overlap, or the one I want is partly behind another — which do I click?**
+Click the part of the *acting* player you can see (head or torso), and **zoom**
+(`Ctrl+scroll`) to separate them — your click just needs to be closer to them than to the
+other player. If they're so stacked you genuinely can't tell who made the play, leave the
+jersey off or skip it (don't guess the identity). *(Different from an **overlap / rotation
+violation** — players out of position at the serve; a rally whistled dead for that is
+**Other → rotation**.)*
+
+**Q: The acting player is fully hidden behind someone — can I still label them?** If you can
+see **any part** of them, click it (the model takes a short window, so it usually catches
+clearer frames as they move out from behind). If they're **fully hidden**, **skip it** —
+don't guess a spot, or the app grabs the *nearest visible* player (the one in front) and
+mislabels the action onto them. A missing label beats a wrong one.
+
 **Q: I can't tell what the action was, or who did it?** Skip it. (Golden rule #1.)
 
 ### The action types
@@ -265,6 +279,18 @@ jersey with no need to click them on the frame.
 action.** Click on the **video frame** whenever you can see the player (that gives the model
 a real image location). Only use the **2D court click** as a fallback when the player is
 off-camera. Never both for the same event.
+
+**Q: 2D vs 3D — what's the difference, and which do I label on?** The **video** is the
+camera's real view (the "3D" scene) — clicking a player there stores their **image
+position**, which the ball/pose models actually learn from. The **2D court** is the top-down
+schematic — clicking there only picks the **jersey** (from the rotation), with no image
+position. **Rule:** click the **video** whenever you can see the player; use the **2D court**
+only as a fallback when they're off-camera. Always **one label per action — never both**.
+
+**Q: The server is off-camera and I *haven't* set up the lineup — what then?** You can still
+label the serve (find it by sound on the waveform), but **leave the jersey blank** rather
+than guessing — an unattributed serve is fine. Setting up the lineup is what lets the 2D
+court tell you *who* served off-screen.
 
 ---
 

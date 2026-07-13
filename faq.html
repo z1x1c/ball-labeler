@@ -91,6 +91,10 @@ const FAQ = [
   a:"If you can see <b>any part</b> of them, click that part (the pose window usually catches clearer frames just before/after, as they move out from behind). If they're <b>fully hidden</b>, <b>skip it</b> — don't guess a spot, because the app would grab the <i>nearest visible</i> player (the one in front) and mislabel the action onto them. A missing label beats a wrong one.",
   t:["hidden","behind","occluded","cant see player","obscured","blocked view","player hidden","behind someone","covered"]},
 
+ {s:"Actions", q:"Two players overlap in the frame — which one do I click?",
+  a:"Click the part of the <b>acting</b> player you can see (head or torso) and <b>zoom</b> (Ctrl+scroll) to separate them — your click just needs to be closer to them than to the other player. If they're so stacked you genuinely can't tell who made the play, leave the jersey off or skip it (don't guess the identity). Note: this is different from an <b>overlap / rotation violation</b> (players out of position at the serve) — a rally whistled dead for that is <b>Other → rotation</b>.",
+  t:["overlap","overlapping","overlaps","stacked","two players","which one","overlap violation","players together","on top of","crowded","close together"]},
+
  {s:"Actions", q:"Two things happen at the same instant (a spike and a block).",
   a:"Label them as <b>two separate actions</b>: click the attacker → classify, then click the blocker → classify. Both are saved at that moment.",
   t:["two","both","same time","simultaneous","spike and block","two actions","at once","multiple"]},
@@ -145,11 +149,19 @@ const FAQ = [
 
  {s:"2D Court", q:"I can hear a serve but can't see the server. How do I label it?",
   a:"Use the <b>2D Court</b> panel. With the lineup set up, it shows <b>who's serving</b> even off-camera. Then: hear the serve on the waveform → glance at the court → <b>click that player on the 2D court</b> → press <code>s</code> → pick the outcome. It's tagged to their jersey, no frame-click needed.",
-  t:["cant see","off camera","off-screen","hidden server","2d court","who serves","serve court","hear"]},
+  t:["cant see","off camera","off-screen","hidden server","2d court","who serves","serve court","hear","cant be seen","server not visible","who served"]},
 
  {s:"2D Court", q:"Should I label an action in both the video and the 2D court?",
   a:"<b>No — one label per action.</b> Click on the <b>video frame</b> whenever you can see the player (that gives a real image location). Only use the <b>2D court click</b> as a fallback when the player is off-camera. Never both for the same event.",
-  t:["both","2d and video","double label","two views","court and frame","separately"]},
+  t:["both","2d and video","double label","two views","court and frame","separately","every marker"]},
+
+ {s:"2D Court", q:"2D vs 3D — what's the difference, and which do I label on?",
+  a:"The <b>video</b> is the camera's real view (the '3D' scene) — clicking a player there stores their <b>image position</b>, which the ball/pose models actually learn from. The <b>2D court</b> is the top-down schematic — clicking there only picks the <b>jersey</b> (from the rotation), with no image position. <b>Rule:</b> click the <b>video</b> whenever you can see the player; use the <b>2D court</b> only as a fallback when they're off-camera. Always <b>one label per action — never both</b>.",
+  t:["2d","3d","2d vs 3d","difference","video vs court","video","court","which surface","top down","camera view","perspective","two views","label on"]},
+
+ {s:"2D Court", q:"The server is off-camera and I haven't set up the lineup — what do I do?",
+  a:"You can still label the serve — find it by sound on the <b>waveform</b> — but <b>leave the jersey blank</b> rather than guessing; an unattributed serve is fine. Setting up the lineup is what lets the 2D court tell you <i>who</i> served off-screen.",
+  t:["server off camera","cant see server","no lineup","server hidden","serve offscreen","dont know who served","server not visible","cant be seen","blank jersey"]},
 
  {s:"2D Court", q:"How do I set up the lineup / rotation?",
   a:"Click <b>Set lineup</b> → enter each team's <b>6 jersey numbers in serving order</b> (whoever serves first for that team, then the next to rotate in…) → pick who serves the very first point → Save. The court then tracks the rotation from your Score labels.",
