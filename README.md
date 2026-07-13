@@ -107,6 +107,11 @@ Handy for cleaning up mistakes without hunting through the video.
 so you get a bigger frame for precise clicking without losing any tools; press **`f`** or
 **Esc** to exit.
 
+**🔍 Zoom for precise marking.** Hold **Ctrl and scroll** (or pinch on a trackpad) over the
+video to **zoom toward your cursor** — ideal in fullscreen when the ball or player is small
+and you want the mark exactly right. A badge (bottom-right) shows the zoom level; **click it
+or scroll back out** to reset. Your clicks stay accurate at any zoom.
+
 **Audio waveform.** Below that, a waveform shows the video's sound synced to playback —
 **contacts and whistles appear as spikes**, with a gold line marking the current moment.
 **Click** it to jump to a sound, or **drag it side to side** (or two-finger / horizontal
@@ -141,6 +146,11 @@ how far it jumps after each click (0.30 s is a good default).
 > play** (effective/bad/perfect/good/in/overpass/touch/dig/assist), or **error** (error/out/blocked).
 > Label the detail if you like; it's ready when a finer model is worth training, and ignored
 > until then. If it slows you down, just use kill/in/error.
+
+5. **Tag the player (optional).** Right after the outcome, just **type the jersey number**
+   (`7`, or `1` `2` for #12) — it attaches to that action and shows on the marker;
+   **Backspace** fixes a typo. This is what turns labels into **per-player stat lines**
+   (kills by #7, passing by #3). Leave it blank to skip — unattributed is fine.
 
 **`o` Other — rule-break faults off the ball.** Some rallies end because a player who
 *wasn't* playing the ball broke a rule (a net touch, a foot over the line, etc.) — no
@@ -211,7 +221,7 @@ video keeps your labels. To resume from a file, click **Import** and pick a `.js
     { "t": 6.30, "type": "ball", "x": 1187, "y": 402 },
     { "t": 6.60, "type": "ball_absent" },
     { "t": 7.10, "type": "ball_hard" },
-    { "t": 9.80, "type": "action", "x": 1040, "y": 360, "action": "attack", "outcome": "kill" },
+    { "t": 9.80, "type": "action", "x": 1040, "y": 360, "action": "attack", "outcome": "kill", "player": "7" },
     { "t": 12.4, "type": "score", "scorer": "left" }
   ]
 }
@@ -221,8 +231,10 @@ video keeps your labels. To resume from a file, click **Import** and pick a `.js
 - `type` — `ball` / `ball_absent` / `ball_hard` / `action` / `score`.
 - `x`,`y` — pixel location in the video's original resolution (0,0 = top-left).
   On a `ball` it's the ball; on an `action` it's the player who made the play.
-- `action` — `serve` / `attack` / `block` / `dig` / `set`; `outcome` is that action's
-  result (e.g. `kill`, `ace`, `error`, `in`, `stuff`, `touch`, `dig`, `assist`).
+- `action` — `serve` / `receive` / `attack` / `block` / `dig` / `set`; `outcome` is that
+  action's result (e.g. `kill`, `ace`, `error`, `in`, `stuff`, `touch`, `dig`, `assist`).
+- `player` — jersey number of the player who made the action (optional; present only if
+  you tagged it).
 - `scorer` — `left` or `right` (which team won that rally).
 
 ---

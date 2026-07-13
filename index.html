@@ -27,6 +27,7 @@
   .stage{position:relative;background:#000;border-radius:10px;overflow:hidden;line-height:0}
   .stage video{width:100%;display:block;max-height:66vh;object-fit:contain}
   .stage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+  #zoombadge{display:none;position:absolute;right:8px;bottom:8px;z-index:5;background:rgba(14,21,36,.85);border:1px solid var(--line);color:var(--ink);font:600 12px system-ui;line-height:1;padding:4px 8px;border-radius:6px;cursor:pointer}
   .empty{display:flex;align-items:center;justify-content:center;min-height:320px;color:var(--dim);text-align:center;padding:30px;line-height:1.7}
   .empty b{color:var(--ink)}
   .seekrow{display:flex;align-items:center;gap:10px;margin-top:10px}
@@ -106,6 +107,7 @@
     </div>
     <video id="vid" playsinline style="display:none"></video>
     <canvas id="cv" style="display:none"></canvas>
+    <div id="zoombadge" onclick="resetZoom()" title="click to reset zoom (ctrl+scroll to zoom)">1.0&times;</div>
   </div>
 
   <div class="seekrow" id="seekrow" style="display:none">
@@ -171,7 +173,8 @@
 "use strict";
 const $=id=>document.getElementById(id);
 const vid=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
-let videoName="", videoFile=null, labels=[], lastToast=0, mode='ball', pending=null, courtOri='lr', scoreFlash=null, history=[];
+let videoName="", videoFile=null, labels=[], lastToast=0, mode='ball', pending=null, courtOri='lr', scoreFlash=null, history=[], lastAction=null;
+let zoom={z:1,tx:0,ty:0};
 let audioEnv=null, audioRate=0;   // audio peak envelope (bins) + bins/sec, for the waveform
 
 // Fine outcomes are stored; for the model they collapse to point (ace/kill/tip/block-out/stuff/dump) /
@@ -187,7 +190,7 @@ const MHINT={ ball:'Click the ball each step — it auto-advances so you can lab
              score:'Set how the teams are arranged (↔ left/right or ↕ top/bottom), then mark each point as the side that won the rally.' };
 const KHINT={
   ball:'<kbd>click</kbd> <span class="b">ball</span> · <kbd>n</kbd> <span class="n">no ball</span> · <kbd>h</kbd> <span class="h">hard</span> · <kbd>space</kbd> play/pause · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here',
-  action:'<kbd>click</kbd> the player, then <kbd>s</kbd>erve <kbd>r</kbd>eceive <kbd>a</kbd>ttack <kbd>b</kbd>lock <kbd>d</kbd>ig se<kbd>t</kbd> <kbd>o</kbd>ther, then <kbd>1</kbd>..<kbd>n</kbd> outcome · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here · <kbd>space</kbd> play · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step',
+  action:'<kbd>click</kbd> the player, then <kbd>s</kbd>erve <kbd>r</kbd>eceive <kbd>a</kbd>ttack <kbd>b</kbd>lock <kbd>d</kbd>ig se<kbd>t</kbd> <kbd>o</kbd>ther, then <kbd>1</kbd>..<kbd>n</kbd> outcome, then <kbd>digits</kbd> = player&nbsp;# (optional) · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here · <kbd>ctrl</kbd>+scroll zoom · <kbd>space</kbd> play',
   score:'<kbd>1</kbd> first side won · <kbd>2</kbd> second side won · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here · <kbd>space</kbd> play/pause · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step' };
 
 // ---------- persistence ----------
@@ -204,7 +207,7 @@ function openVideo(file){
   vid.src=URL.createObjectURL(file); $('vname').textContent=file.name;
   $('empty').style.display='none'; vid.style.display='block'; cv.style.display='block';
   $('seekrow').style.display='flex'; $('transport').style.display='flex'; $('cov').style.display='block';
-  vid.onloadedmetadata=()=>{ cv.width=vid.videoWidth||1920; cv.height=vid.videoHeight||1080; $('seek').max=vid.duration||0; loadStore(); vid.pause(); };
+  vid.onloadedmetadata=()=>{ cv.width=vid.videoWidth||1920; cv.height=vid.videoHeight||1080; $('seek').max=vid.duration||0; resetZoom(); loadStore(); vid.pause(); };
   $('wavewrap').style.display='block'; decodeAudio(file);
 }
 
@@ -227,7 +230,7 @@ async function decodeAudio(file){
 }
 
 // ---------- modes ----------
-function setMode(m){ mode=m; pending=null;
+function setMode(m){ mode=m; pending=null; lastAction=null;
   document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('on', b.dataset.m===m));
   $('mhint').textContent=MHINT[m]; $('khint').innerHTML=KHINT[m]+' · <kbd>f</kbd> full screen';
   $('panel-action').style.display=m==='action'?'flex':'none';
@@ -253,12 +256,18 @@ function addBall(type,x,y){ const t=now(), l={t,type}; if(x!=null){l.x=Math.roun
   if($('auto').checked) step(stepSize()); }
 
 // actions: click player -> pick action -> pick outcome
-function clickPlayer(x,y){ pending={x:Math.round(x),y:Math.round(y),t:now()}; renderActionPanel(); toast('player set — pick the action'); }
+function clickPlayer(x,y){ lastAction=null; pending={x:Math.round(x),y:Math.round(y),t:now()}; renderActionPanel(); toast('player set — pick the action'); }
 function pickAction(a){ if(!pending)return; pending.action=a; renderActionPanel(); previewThenReturn(); }
 function pickOutcome(o){ if(!pending||!pending.action)return; const back=pending.t;
-  pushLabel({t: back!=null?back:now(), type:'action', x:pending.x, y:pending.y, action:pending.action, outcome:o});
-  toast(`${pending.action} → ${o}`); pending=null; endPreview(back); renderActionPanel(); }
+  const l={t: back!=null?back:now(), type:'action', x:pending.x, y:pending.y, action:pending.action, outcome:o};
+  pushLabel(l); lastAction=l;                      // type digits next to tag the player's jersey #
+  toast(`${pending.action} → ${o} — type # for player`); pending=null; endPreview(back); renderActionPanel(); }
 function cancelPending(){ const back=pending?pending.t:null; pending=null; endPreview(back); renderActionPanel(); }
+// tag/untag the just-labeled action's jersey number via digit / backspace keys
+function tagPlayerDigit(k){ if(!lastAction)return false;
+  if(/^[0-9]$/.test(k)){ lastAction.player=((lastAction.player||'')+k).slice(0,3); save(); toast('player #'+lastAction.player); return true; }
+  if(k==='backspace'){ lastAction.player=(lastAction.player||'').slice(0,-1); if(!lastAction.player)delete lastAction.player; save(); toast(lastAction.player?'player #'+lastAction.player:'jersey cleared'); return true; }
+  return false; }
 // preview: after picking an action, play forward N s (at preview speed) to reveal the outcome, then snap back
 let _previewTo=null, _prevRate=null;
 function previewThenReturn(){ if(!vid.src||!pending||!$('preview').checked) return;
@@ -323,6 +332,20 @@ cv.addEventListener('click', e=>{
   else if(mode==='action') clickPlayer(x,y);
 });
 
+// ctrl + scroll (or trackpad pinch) -> zoom the frame toward the cursor, for precise marking (great in fullscreen).
+// getBoundingClientRect already reflects the CSS transform, so click coords stay correct.
+function applyZoom(){ const tf=`translate(${zoom.tx}px,${zoom.ty}px) scale(${zoom.z})`;
+  vid.style.transformOrigin=cv.style.transformOrigin='0 0'; vid.style.transform=cv.style.transform=tf; $('zoombadge').style.display=zoom.z>1.001?'':'none'; $('zoombadge').textContent=zoom.z.toFixed(1)+'×'; }
+function resetZoom(){ zoom={z:1,tx:0,ty:0}; applyZoom(); }
+$('stage').addEventListener('wheel', e=>{
+  if(!e.ctrlKey || !vid.src) return; e.preventDefault();
+  const r=$('stage').getBoundingClientRect(), cx=e.clientX-r.left, cy=e.clientY-r.top;
+  const oldZ=zoom.z, nz=Math.min(6, Math.max(1, oldZ*(e.deltaY<0?1.15:1/1.15)));
+  zoom.tx=cx-(cx-zoom.tx)*(nz/oldZ); zoom.ty=cy-(cy-zoom.ty)*(nz/oldZ); zoom.z=nz;
+  if(nz<=1.001){ zoom.tx=0; zoom.ty=0; zoom.z=1; }
+  applyZoom();
+}, {passive:false});
+
 // ---------- transport ----------
 // seekbar (outside the video, so it never blocks labeling on the frame)
 let seekDrag=false;
@@ -357,7 +380,7 @@ window.addEventListener('keydown', e=>{
   if(k==='.'){ e.preventDefault(); step(0.1); return; }
   if(mode==='ball'){ if(k==='n'){e.preventDefault();addBall('ball_absent',null);} else if(k==='h'){e.preventDefault();addBall('ball_hard',null);} }
   else if(mode==='action'){
-    if(!pending) return;
+    if(!pending){ if(lastAction&&(/^[0-9]$/.test(k)||k==='backspace')){ e.preventDefault(); tagPlayerDigit(k); } return; }
     if(!pending.action){ if(ACTKEY[k]){ e.preventDefault(); pickAction(ACTKEY[k]); } }
     else { const outs=ACTIONS[pending.action]; const i=parseInt(k)-1; if(i>=0&&i<outs.length){ e.preventDefault(); pickOutcome(outs[i]); } }
   }
@@ -385,7 +408,7 @@ function draw(){
       else { ctx.fillStyle=l.type==='ball_absent'?'#ff6b6b':'#c792ea'; ctx.font='bold 26px system-ui'; ctx.fillText(l.type==='ball_absent'?'NO BALL':'HARD',20,40); } }
   } else if(mode==='action'){
     for(const l of nearLabels(t,['action'])){ ring(l.x,l.y,14,'#4dc3ff',3); ctx.fillStyle='#4dc3ff'; ctx.font='bold 16px system-ui';
-      ctx.fillText(`${l.action} · ${l.outcome}`, l.x+18, l.y+5); }
+      ctx.fillText(`${l.action} · ${l.outcome}${l.player?'  #'+l.player:''}`, l.x+18, l.y+5); }
     if(pending){ const pulse=6+4*Math.sin(Date.now()/140); ring(pending.x,pending.y,12+pulse,'#f5c542',3);
       ctx.fillStyle='#f5c542'; ctx.font='bold 15px system-ui'; ctx.fillText(pending.action?('pick outcome'):'pick action', pending.x+18, pending.y+5); }
   } else if(mode==='score'){
@@ -445,7 +468,7 @@ $('track').addEventListener('click', e=>{ const r=e.currentTarget.getBoundingCli
 
 // ---------- label list: jump to any label to review / correct it ----------
 function labelDesc(l){ return l.type==='ball'?`ball (${l.x}, ${l.y})` : l.type==='ball_absent'?'no ball'
-  : l.type==='ball_hard'?'hard' : l.type==='action'?`${l.action} → ${l.outcome}` : l.type==='score'?`point → ${l.scorer}` : l.type; }
+  : l.type==='ball_hard'?'hard' : l.type==='action'?`${l.action} → ${l.outcome}${l.player?' · #'+l.player:''}` : l.type==='score'?`point → ${l.scorer}` : l.type; }
 function toggleList(){ const el=$('labellist'); el.style.display=(el.style.display==='none'?'block':'none'); renderList(); }
 function renderList(){ const el=$('labellist'); if(el.style.display==='none') return; const box=$('labelrows'); box.innerHTML='';
   if(!labels.length){ box.innerHTML='<div class="none">No labels yet.</div>'; return; }
@@ -461,7 +484,7 @@ function delLabel(l){ const i=labels.indexOf(l); if(i<0) return; labels.splice(i
 
 // ---------- export / import ----------
 function exportData(){ return { video:videoName, orientation: courtOri==='lr'?'left-right':'top-bottom', labels: labels.map(l=>{ const o={t:l.t,type:l.type};
-  if(l.x!=null){o.x=l.x;o.y=l.y;} if(l.action){o.action=l.action;o.outcome=l.outcome;} if(l.scorer){o.scorer=l.scorer;} return o; }) }; }
+  if(l.x!=null){o.x=l.x;o.y=l.y;} if(l.action){o.action=l.action;o.outcome=l.outcome;} if(l.player)o.player=l.player; if(l.scorer){o.scorer=l.scorer;} return o; }) }; }
 function downloadBlob(blob, name){ const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name; a.style.display='none';
   document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); }, 4000); }
