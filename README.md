@@ -9,6 +9,10 @@ labels used to train and check a volleyball-analysis model.
 
 No coding needed. If you can use a web browser, you can use this.
 
+> 📖 **Labelers: read [`LABELING_FAQ.md`](LABELING_FAQ.md)** — a detailed guide to *how to
+> label well* (what to mark, when, the action/outcome meanings, tricky cases, and the
+> golden rules). This README is setup; the FAQ is the craft.
+
 There are three labeling modes, and you switch between them with the buttons at the top:
 
 - **● Ball** — mark where the ball is, moment to moment.
