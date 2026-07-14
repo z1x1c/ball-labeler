@@ -216,20 +216,20 @@ let zoom={z:1,tx:0,ty:0};
 let lineup=null;   // {A:[6 jerseys serve-order], B:[6], firstServe:'A'|'B', offset:{A,B}} — 2D court rotation
 let audioEnv=null, audioRate=0;   // audio peak envelope (bins) + bins/sec, for the waveform
 
-// Fine outcomes are stored; for the model they collapse to point (ace/kill/tip/block-out/stuff/dump) /
+// Fine outcomes are stored; for the model they collapse to point (ace/kill/tip/block-out/stuff/dump/point) /
 // in-play (effective/bad/perfect/good/in/overpass/touch/dig/assist/good set/bad set) / error (error/out/blocked). Fine grades = future insurance.
 const ACTIONS={ serve:['ace','effective','bad','error'], receive:['perfect','good','in','overpass','error','kill'],
-  attack:['kill','tip','block-out','in','blocked','error'], dig:['perfect','good','in','overpass','error','kill'],
+  attack:['kill','tip','block-out','in','blocked','error'], 'free ball':['in','point','error'], dig:['perfect','good','in','overpass','error','kill'],
   set:['assist','dump','good set','bad set','error'], block:['stuff','touch','error'],
-  other:['net touch','foot fault','four hits','reach over','rotation','other'] };
-const ACTKEY={ s:'serve', r:'receive', a:'attack', b:'block', d:'dig', t:'set', o:'other' };
+  other:['net touch','foot fault','four hits','reach over','rotation','other'] };   // 'free ball' = a deliberate send-over (not a spike, not a set to a teammate)
+const ACTKEY={ s:'serve', r:'receive', a:'attack', v:'free ball', b:'block', d:'dig', t:'set', o:'other' };
 const COLORS={ ball:'#33d17a', ball_absent:'#ff6b6b', ball_hard:'#c792ea', action:'#4dc3ff', score:'#f5c542' };
 const MHINT={ ball:'Click the ball each step — it auto-advances so you can label continuously.',
              action:'Pause at the moment of contact, click the player, then pick action → outcome. One marker per action; label a spike + block at the same moment as two separate actions.',
              score:'Set how the teams are arranged (↔ left/right or ↕ top/bottom), then mark each point as the side that won the rally.' };
 const KHINT={
   ball:'<kbd>click</kbd> <span class="b">ball</span> · <kbd>n</kbd> <span class="n">no ball</span> · <kbd>h</kbd> <span class="h">hard</span> · <kbd>space</kbd> play/pause · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here',
-  action:'<kbd>click</kbd> the player, then <kbd>s</kbd>erve <kbd>r</kbd>eceive <kbd>a</kbd>ttack <kbd>b</kbd>lock <kbd>d</kbd>ig se<kbd>t</kbd> <kbd>o</kbd>ther, then <kbd>1</kbd>..<kbd>n</kbd> outcome, then <kbd>digits</kbd> = player&nbsp;# (optional) · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here · <kbd>ctrl</kbd>+scroll zoom · <kbd>space</kbd> play',
+  action:'<kbd>click</kbd> the player, then <kbd>s</kbd>erve <kbd>r</kbd>eceive <kbd>a</kbd>ttack free-ball<kbd>v</kbd> <kbd>b</kbd>lock <kbd>d</kbd>ig se<kbd>t</kbd> <kbd>o</kbd>ther, then <kbd>1</kbd>..<kbd>n</kbd> outcome, then <kbd>digits</kbd> = player&nbsp;# (optional) · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here · <kbd>ctrl</kbd>+scroll zoom · <kbd>space</kbd> play',
   score:'<kbd>1</kbd> first side won · <kbd>2</kbd> second side won · <kbd>z</kbd> undo last · <kbd>x</kbd> delete here · <kbd>space</kbd> play/pause · <kbd>&rarr;</kbd>/<kbd>&larr;</kbd> step' };
 
 // ---------- persistence ----------

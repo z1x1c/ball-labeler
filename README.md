@@ -140,18 +140,29 @@ how far it jumps after each click (0.30 s is a good default).
 ### Actions mode — who did what
 1. **Pause at the moment of contact** (the spike hit, the serve toss-contact, the block touch).
 2. **Click the player** who made the play.
-3. Pick the **action**: **`s`** serve · **`r`** receive · **`a`** attack · **`b`** block ·
-   **`d`** dig · **`t`** set · **`o`** other. (**Receive** = serve-receive / passing, tracked
-   separately from a **Dig**, which is defending an attack.)
+3. Pick the **action**: **`s`** serve · **`r`** receive · **`a`** attack · **`v`** free ball ·
+   **`b`** block · **`d`** dig · **`t`** set · **`o`** other. (**Receive** = serve-receive /
+   passing, tracked separately from a **Dig**, which is defending an attack. **Free ball** =
+   a deliberate send-over — see below.)
 4. Pick the **outcome** with **`1`**, **`2`**, **`3`**… — e.g. serve → ace / effective / bad /
    error; receive & dig → perfect / good / in / overpass / error / kill; **attack → kill / tip /
-   block-out / in / blocked / error** (*how* the point was won); set → assist / dump / good set /
-   bad set / error (**good/bad set** = the set stayed in play but was a good vs a poor ball to hit).
+   block-out / in / blocked / error** (*how* the point was won); free ball → in / point / error;
+   set → assist / dump / good set / bad set / error (**good/bad set** = the set stayed in play
+   but was a good vs a poor ball to hit).
+
+> **`v` Free ball — a deliberate send-over, *not* a spike.** When a team can't attack (bad
+> pass/set) and someone just pushes the ball over the net on purpose, that's a **free ball**,
+> not an attack and not a set. By the rulebook it *is* an attack (any ball sent over except
+> serve/block), but its *motion* is a controlled standing push — its own thing — so it gets
+> its own label to keep the spike and set classes clean. Outcomes: `in` (they return it) /
+> `point` (they can't) / `error` (into the net / out). Not to be confused with a **dig/receive
+> → overpass**, which is an *accidental* pass carried over.
 
 > **The detail is future insurance.** Both the quality grades (perfect/good/effective) *and*
 > the attack methods (kill/tip/block-out) are *saved*, but a model treats them by result for
-> now — what changes a rally is only **point** (ace/kill/tip/block-out/stuff/dump), **kept in
-> play** (effective/bad/perfect/good/in/overpass/touch/dig/assist/good set), or **error** (error/out/blocked).
+> now — what changes a rally is only **point** (ace/kill/tip/block-out/stuff/dump/point), **kept
+> in play** (effective/bad/perfect/good/in/overpass/touch/dig/assist/good set/bad set), or
+> **error** (error/out/blocked).
 > Label the detail if you like; it's ready when a finer model is worth training, and ignored
 > until then. If it slows you down, just use kill/in/error.
 

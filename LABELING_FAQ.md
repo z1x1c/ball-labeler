@@ -196,6 +196,7 @@ Pick with a single key after clicking the player:
 | **`s`** | **serve** | putting the ball in play from behind the end line |
 | **`r`** | **receive** | **serve-receive** (passing a serve). *Different from a dig.* |
 | **`a`** | **attack** | a spike / hit / tip trying to score |
+| **`v`** | **free ball** | a *deliberate* send-over (not a spike, not a set) — see below |
 | **`b`** | **block** | jumping at the net to stop an attack |
 | **`d`** | **dig** | defending an **attack** (digging a spike up) |
 | **`t`** | **set** | the second contact, setting up an attacker |
@@ -204,6 +205,16 @@ Pick with a single key after clicking the player:
 **Q: Receive vs Dig — what's the difference?** A **receive** is passing a **serve**. A
 **dig** is defending an **attack** (a spiked/hit ball). Same skill, different situation —
 and volleyball tracks them separately (passing rating vs digs), so we do too.
+
+**Q: A player pushed the ball over the net *on purpose* on the 3rd touch (bad pass, couldn't
+attack) — what is that?** That's a **free ball** (press **`v`**) — a *deliberate* send-over.
+It's **not an attack** (a spike) and **not a set** (a set delivers to a teammate on the 2nd
+touch; this faces the net). By the rulebook it technically *is* an attack — any ball sent to
+the opponent except serve/block — but its **motion** is a controlled standing push, its own
+skill, so it gets its own label to keep the spike and set classes clean for the model. It's
+also **not an overpass** — an overpass is an *accidental* pass carried over (usually on
+serve-receive); a free ball is on purpose. Outcomes: `in` (they return it) / `point` (they
+can't) / `error` (into the net or out).
 
 **Q: What's "Other" for?** Rallies that end because someone *not playing the ball* broke a
 rule — a **net touch**, **foot fault** (foot over the line on serve/center line), **four
@@ -220,6 +231,7 @@ After the action, pick the outcome with number keys (**`1`**, **`2`**, …):
 | **serve** | `ace` · `effective` · `bad` · `error` |
 | **receive** | `perfect` · `good` · `in` · `overpass` · `error` · `kill` |
 | **attack** | `kill` · `tip` · `block-out` · `in` · `blocked` · `error` |
+| **free ball** | `in` · `point` · `error` |
 | **dig** | `perfect` · `good` · `in` · `overpass` · `error` · `kill` |
 | **set** | `assist` · `dump` · `good set` · `bad set` · `error` |
 | **block** | `stuff` · `touch` · `error` |
@@ -237,6 +249,8 @@ After the action, pick the outcome with number keys (**`1`**, **`2`**, …):
   tip/roll scores; `block-out` = you hit off the block and it goes out (a "tool"); `in` =
   the attack was dug up, rally continues; `blocked` = stuffed by the block; `error` = hit
   out or into the net.
+- **Free ball** — a deliberate send-over: `in` = they return it (rally continues); `point` =
+  they can't handle it (you score); `error` = you send it into the net or out.
 - **Set** — `assist` = your set led to a teammate's kill; `dump` = the setter attacked the
   second ball for a point; `good set` = a good, hittable set that just didn't lead to a
   point; `bad set` = a poor set (hard to attack) but still in play — not an error;
@@ -367,10 +381,10 @@ Label the touches you can clearly attribute; skip the ones you can't. For a jous
 can't tell whose touch was last/decisive, skip the individual action but still mark the
 **Score** (who won the rally).
 
-**Q: Free ball / down ball (not a real spike) — is it an attack?** Yes, label it `attack`
-with the outcome that fits (`in` if it's just returned, `kill` if it scores, etc.). If it's
-really a *set/pass over*, use your best judgment; consistency matters more than the exact
-label.
+**Q: Free ball vs down ball — which label?** A deliberate, controlled **send-over** is a
+**free ball** (**`v`**) — its own action (`in` / `point` / `error`). A **down ball** is a
+standing *hit* (a real swing, no jump) meant to score — that's an **attack** (**`a`**). Rule
+of thumb: a controlled push over = free ball; an actual hitting swing = attack.
 
 **Q: The setter tips the ball over for a point.** That's a **dump** → `set` → `dump`.
 

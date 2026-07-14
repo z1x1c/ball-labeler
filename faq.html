@@ -103,6 +103,14 @@ const FAQ = [
   a:"A <b>receive</b> is passing a <b>serve</b> (serve-receive). A <b>dig</b> is defending an <b>attack</b> (a spiked/hit ball). Same skill, different situation — volleyball tracks them separately (passing rating vs digs), so we do too. Press <code>r</code> for receive, <code>d</code> for dig.",
   t:["receive","dig","difference","pass","passing","reception","serve receive","defense","vs"]},
 
+ {s:"Actions", q:"A player pushed the ball over on purpose (bad pass, couldn't attack) — how do I label it?",
+  a:"That's a <b>free ball</b> — press <code>v</code>. A <i>deliberate</i> send-over: not a spike, and not a set (a set delivers to a teammate on the 2nd touch; this faces the net). By the rulebook it's technically an attack (any ball sent over except serve/block), but its <b>motion</b> is a controlled standing push — its own skill — so it gets its own label to keep the spike and set classes clean. It's <b>not an overpass</b> either (that's an <i>accidental</i> pass carried over). Outcomes: <b>in</b> (they return it) / <b>point</b> (they can't) / <b>error</b> (into the net or out).",
+  t:["free ball","send over","over the net on purpose","push over","3rd touch over","set over","over set","free","dump it over","deliberate over","couldnt attack","bad pass over","put it over","tip it over","standing set over"]},
+
+ {s:"Actions", q:"Is an 'attack' only a spike, or any ball sent over the net?",
+  a:"By the rulebook an attack is <b>any</b> ball sent to the opponent except serve and block — spike, tip, or a standing send-over. But in our labels: use <b>attack</b> for the spike/tip family (a real attacking motion), and <b>free ball</b> (<code>v</code>) for a deliberate standing send-over, so the pose model keeps them apart.",
+  t:["attack definition","is attack a spike","attack meaning","any ball over","what is an attack","attack vs free ball","spike only","does attack mean spike"]},
+
  {s:"Actions", q:"What is the 'Other' action for?",
   a:"Rallies that end because someone <i>not playing the ball</i> broke a rule — a <b>net touch, foot fault, four hits, reach over, rotation</b> fault, or other. No model can infer that from the ball, so you mark it: click the offending player → <code>o</code> Other → the fault type. They all mean <i>point to the other team</i>.",
   t:["other","fault","net touch","foot fault","four hits","reach over","rotation fault","violation","rule"]},
@@ -223,9 +231,9 @@ const FAQ = [
   a:"Use the <b>audio waveform</b> below the video — contacts and whistles show up as spikes. Click a spike to jump there, or drag/scroll to scrub. Especially useful for serves or hits that are off-frame or blurred.",
   t:["waveform","audio","sound","hear","spike","find hit","whistle","contact sound"]},
 
- {s:"Tricky", q:"Is a free ball / down ball an attack?",
-  a:"Yes — label it <code>attack</code> with the outcome that fits (<code>in</code> if just returned, <code>kill</code> if it scores). If it's really a set/pass over, use your best judgment; consistency matters more than the exact label.",
-  t:["free ball","down ball","not spike","easy ball","attack or not"]},
+ {s:"Actions", q:"Free ball vs down ball — which label?",
+  a:"A deliberate, controlled <b>send-over</b> is a <b>free ball</b> (press <code>v</code>) — its own action, outcomes <code>in</code> / <code>point</code> / <code>error</code>. A <b>down ball</b> is a standing <i>hit</i> (a real swing, just no jump) meant to score — that's an <b>attack</b> (<code>a</code>). Rule of thumb: a controlled push over = free ball; an actual hitting swing = attack.",
+  t:["free ball","down ball","not spike","easy ball","free ball vs down ball","standing hit","no jump","which label"]},
 
  {s:"Tricky", q:"There's a joust at the net — how do I label it?",
   a:"Label the touches you can clearly attribute; skip the ones you can't. If you can't tell whose touch was last/decisive, skip the individual action but still mark the <b>Score</b> (who won the rally).",
