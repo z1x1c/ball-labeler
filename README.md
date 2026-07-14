@@ -155,10 +155,13 @@ how far it jumps after each click (0.30 s is a good default).
 > Label the detail if you like; it's ready when a finer model is worth training, and ignored
 > until then. If it slows you down, just use kill/in/error.
 
-5. **Tag the player (optional).** Right after the outcome, just **type the jersey number**
-   (`7`, or `1` `2` for #12) — it attaches to that action and shows on the marker;
-   **Backspace** fixes a typo. This is what turns labels into **per-player stat lines**
-   (kills by #7, passing by #3). Leave it blank to skip — unattributed is fine.
+5. **Tag the player (optional) — for *every* action, not just off-camera ones.** Right after
+   the outcome, the panel shows a **jersey prompt with number buttons** — **type the number**
+   (`7`, or `1` `2` for #12) or **click the buttons**; it attaches to that action and shows on
+   the marker (**Backspace** fixes a typo). Do it **before you click the next player** (that
+   starts a fresh action). This is what turns labels into **per-player stat lines** (kills by
+   #7, passing by #3). Leave it blank to skip — unattributed is fine. *(Off-camera players are
+   a different tool — the 2D-court click; see below.)*
 
 **`o` Other — rule-break faults off the ball.** Some rallies end because a player who
 *wasn't* playing the ball broke a rule (a net touch, a foot over the line, etc.) — no

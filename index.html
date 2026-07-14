@@ -306,8 +306,8 @@ function pickOutcome(o){ if(!pending||!pending.action)return; const back=pending
 function cancelPending(){ const back=pending?pending.t:null; pending=null; endPreview(back); renderActionPanel(); }
 // tag/untag the just-labeled action's jersey number via digit / backspace keys
 function tagPlayerDigit(k){ if(!lastAction)return false;
-  if(/^[0-9]$/.test(k)){ lastAction.player=((lastAction.player||'')+k).slice(0,3); save(); toast('player #'+lastAction.player); return true; }
-  if(k==='backspace'){ lastAction.player=(lastAction.player||'').slice(0,-1); if(!lastAction.player)delete lastAction.player; save(); toast(lastAction.player?'player #'+lastAction.player:'jersey cleared'); return true; }
+  if(/^[0-9]$/.test(k)){ lastAction.player=((lastAction.player||'')+k).slice(0,3); save(); toast('player #'+lastAction.player); renderActionPanel(); return true; }
+  if(k==='backspace'){ lastAction.player=(lastAction.player||'').slice(0,-1); if(!lastAction.player)delete lastAction.player; save(); toast(lastAction.player?'player #'+lastAction.player:'jersey cleared'); renderActionPanel(); return true; }
   return false; }
 // preview: after picking an action, play forward N s (at preview speed) to reveal the outcome, then snap back
 let _previewTo=null, _prevRate=null;
@@ -318,7 +318,15 @@ function previewThenReturn(){ if(!vid.src||!pending||!$('preview').checked) retu
 function endPreview(back){ _previewTo=null; if(vid.src){ vid.pause(); setPlayBtn();
   if(_prevRate!=null){ vid.playbackRate=_prevRate; _prevRate=null; } if(back!=null) vid.currentTime=back; } }
 function renderActionPanel(){ const p=$('panel-action');
-  if(!pending){ p.innerHTML='<span class="dim">Click the player who made the play →</span>'; return; }
+  if(!pending){
+    if(lastAction){ const pl=lastAction.player||'';
+      p.innerHTML=`<span class="dim">just added</span> <b>${lastAction.action} &rarr; ${lastAction.outcome}</b>`
+        +` &nbsp;<span class="dim">jersey&nbsp;#</span><b style="color:var(--accent);min-width:22px;display:inline-block">${pl||'&mdash;'}</b>`
+        +[1,2,3,4,5,6,7,8,9,0].map(d=>`<button class="btn" onclick="tagPlayerDigit('${d}');this.blur()">${d}</button>`).join('')
+        +`<button class="btn" onclick="tagPlayerDigit('backspace');this.blur()" title="delete a digit">&#9003;</button>`
+        +` <span class="dim">&mdash; type the number (optional), or click the next player &rarr;</span>`;
+      return; }
+    p.innerHTML='<span class="dim">Click the player who made the play →</span>'; return; }
   if(!pending.action){ p.innerHTML='<b>Pick action</b>'+Object.entries(ACTKEY).map(([k,a])=>
       `<button class="btn" onclick="pickAction('${a}')">${a}<kbd>${k}</kbd></button>`).join('')
     +'<button class="btn" onclick="cancelPending()">cancel<kbd>z</kbd></button>'; return; }

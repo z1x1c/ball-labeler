@@ -259,7 +259,9 @@ to it. Don't label both for the same touch.
 ### Tagging the player
 
 **Q: How do I record *which* player did the action?** Right after you pick the outcome,
-just **type the jersey number** (`7`, or `1``2` for #12). It attaches to that action and
+the panel shows a **jersey prompt with number buttons** — **type the number** (`7`, or
+`1``2` for #12) *or* **click the buttons**. Do it **before you click the next player**. It's
+for **every** action you want attributed (not only off-camera ones). It attaches to that action and
 shows on the marker. **Backspace** fixes a typo. This is what turns labels into **per-player
 stats** (kills by #7, passing by #3).
 
